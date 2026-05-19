@@ -4,9 +4,15 @@
 
 DecodeMind scans a folder of source code and reports security issues, bugs, logic problems, and quality concerns — in plain language. **No upload. No server. No account. Free forever.**
 
+## Live demo
+
+🚀 **Try it now: [decodemind.dev](https://decodemind.dev)**
+
+No signup, no upload — pick a folder, scan it, fix issues. Your code never leaves your browser.
+
 ## Status
 
-🚀 **V1 substantially implemented.** Foundation, scanners, LLM tier UX, sectioned report, auto-fix machinery, and export are in place. Awaiting domain purchase + Cloudflare Pages deploy + final design pass before public launch.
+**V1 live at [decodemind.dev](https://decodemind.dev)**
 
 ## What makes it different
 

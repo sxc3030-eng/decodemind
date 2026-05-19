@@ -1,6 +1,6 @@
 # DecodeMind: a code scanner that runs entirely in your browser
 
-**TL;DR — I built a code scanner that finds security issues, bugs, and quality problems in a folder of source code, applies fixes one click at a time, and does it all without sending a single byte of code to a server. Open source. Try it at [decodemind.dev](https://decodemind.dev).**
+**TL;DR — I built a code scanner that finds security issues, bugs, and quality problems in a folder of source code, applies fixes one click at a time, and does it all without sending a single byte of code to a server. Try it at [decodemind.dev](https://decodemind.dev).**
 
 ---
 
@@ -72,8 +72,8 @@ The V1 build is now branch `v1` of the repo. 240 unit tests, typecheck clean, a 
 
 ## Try it / contribute
 
-- **Live site**: [decodemind.dev](https://decodemind.dev) _(coming soon — pre-launch test in progress)_
-- **Source**: [github.com/getdecodemind/decodemind](https://github.com/getdecodemind/decodemind) _(open-source under MIT)_
+- **Live site**: [decodemind.dev](https://decodemind.dev)
+- **Source**: [github.com/sxc3030-eng/decodemind](https://github.com/sxc3030-eng/decodemind) (open-source, MIT)
 - **How to add a rule**: see [`CONTRIBUTING.md`](../CONTRIBUTING.md). One YAML file in `src/lib/rules/definitions/`, one EN explanation, one FR explanation, and the existing test suite picks it up automatically.
 
 ## Author note
