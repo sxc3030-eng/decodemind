@@ -53,6 +53,9 @@ test-results/
 # Models / WASM artifacts (these are downloaded at runtime, never committed)
 public/models/
 public/wasm/*.wasm
+
+# Grammar WASM files — copied from tree-sitter-wasms at build time, not committed
+public/tree-sitter-*.wasm
 *.mlc.tar
 
 # DecodeMind runtime artifacts (when testing locally)

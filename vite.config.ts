@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { VitePWA } from 'vite-plugin-pwa';
+import { copyGrammarsPlugin } from './src/lib/grammars/copyGrammarsPlugin';
 
 // Required for WebGPU + SharedArrayBuffer (WebLLM) on both dev and preview servers.
 const crossOriginIsolationHeaders = {
@@ -12,6 +13,7 @@ const crossOriginIsolationHeaders = {
 export default defineConfig({
   plugins: [
     react(),
+    copyGrammarsPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
