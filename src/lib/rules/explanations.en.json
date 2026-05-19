@@ -148,5 +148,155 @@
     "problem": "useFetch and useDebounce are not part of React's core API. They are frequently hallucinated by AI code generators as if they were built-in hooks.",
     "impact": "The code will fail at runtime because these hooks do not exist in React.",
     "fix": "Install a library that provides them (e.g. react-use, usehooks-ts) or implement them yourself. Check the React documentation for the list of built-in hooks."
+  },
+  "bug-async-without-await": {
+    "problem": "This async function never uses await, so it runs synchronously and the async wrapper adds no benefit.",
+    "impact": "The function still returns a Promise, which callers must handle, but the async keyword is misleading and hides the actual execution flow.",
+    "fix": "Remove the async keyword if the function has no asynchronous operations, or add the missing await before the async call inside the function body."
+  },
+  "bug-loose-equality": {
+    "problem": "The == operator performs type coercion, which can produce surprising results. For example, 0 == false is true and '' == 0 is true.",
+    "impact": "Logic bugs where values that should be different are treated as equal, leading to incorrect branching or data processing.",
+    "fix": "Use === (strict equality) instead of ==. It checks both value and type without coercion."
+  },
+  "bug-missing-await": {
+    "problem": "An async function is called but its returned Promise is assigned without await. The variable holds a Promise object, not the resolved value.",
+    "impact": "You will be working with a Promise instead of the data you expected, causing errors or silent wrong behavior downstream.",
+    "fix": "Add await before the async function call: const result = await myAsyncFn()."
+  },
+  "bug-dict-get-no-default": {
+    "problem": "dict.get(key) returns None when the key is missing. If the caller does not check for None, subsequent operations on the result will fail.",
+    "impact": "AttributeError or TypeError at runtime when code tries to use a None value as if it were a real object.",
+    "fix": "Provide a default: dict.get(key, default_value). Choose a sensible default (e.g. 0, [], or an empty string) or explicitly handle the None case."
+  },
+  "bug-mutable-default-arg": {
+    "problem": "Default argument values are evaluated once when the function is defined, not each time it is called. A mutable default like [] is shared across all calls.",
+    "impact": "Mutations inside the function persist across calls, causing state to leak between unrelated invocations.",
+    "fix": "Use None as the default and create a new mutable object inside the function: def f(items=None): if items is None: items = []"
+  },
+  "bug-off-by-one-range": {
+    "problem": "range(1, len(arr)) skips index 0, so the first element of the array is never processed.",
+    "impact": "The first item is silently ignored, which can produce wrong totals, missed validations, or incomplete processing.",
+    "fix": "Use range(len(arr)) to start from index 0, or range(0, len(arr)) to be explicit."
+  },
+  "bug-unused-exception": {
+    "problem": "A bare except: pass or except Exception: pass silently swallows all errors without logging or re-raising them.",
+    "impact": "Real failures are hidden, making debugging very difficult. The program continues in a potentially invalid state.",
+    "fix": "At minimum, log the exception: except Exception as e: logger.error(e). Re-raise if you cannot handle it gracefully."
+  },
+  "bug-promise-not-awaited": {
+    "problem": "A Promise-returning function is called but its result is not awaited or handled with .then()/.catch(). The Promise runs in the background with no way to react to success or failure.",
+    "impact": "Errors are silently swallowed and success side-effects may run after the surrounding code has already completed.",
+    "fix": "Add await before the call in an async context, or chain .then() and .catch() to handle the result explicitly."
+  },
+  "bug-string-concat-int": {
+    "problem": "Adding a string and an integer with + raises a TypeError in Python. Python does not auto-coerce types during concatenation.",
+    "impact": "The program crashes at runtime with TypeError: can only concatenate str (not 'int') to str.",
+    "fix": "Explicitly convert the integer to a string: str(num) + text, or use an f-string: f'{text}{num}'."
+  },
+  "bug-array-includes-NaN": {
+    "problem": "Array.prototype.includes() uses SameValueZero comparison, which means [NaN].includes(NaN) correctly returns true — but Array.prototype.indexOf(NaN) always returns -1 because it uses strict equality where NaN !== NaN.",
+    "impact": "Code that uses indexOf to check for NaN will always fail to find it, producing wrong results silently.",
+    "fix": "Use Number.isNaN() to check for NaN, or use Array.prototype.includes() instead of indexOf when searching for NaN."
+  },
+  "bug-react-key-missing": {
+    "problem": "React requires each element in a list to have a unique key prop so it can efficiently update the DOM. Without it, React must re-render entire lists on every change.",
+    "impact": "Slow re-renders, incorrect component state after list updates, and React console warnings in development.",
+    "fix": "Add a unique key prop to the outermost element returned from map(): arr.map(item => <Component key={item.id} />)."
+  },
+  "bug-typeof-null-object": {
+    "problem": "In JavaScript, typeof null === 'object' is true, which is a historical language bug. Checking typeof x === 'object' without also checking x !== null will incorrectly treat null as an object.",
+    "impact": "Code that relies on this check to confirm an object exists will silently pass null through, causing errors later when properties are accessed.",
+    "fix": "Add an explicit null check: typeof x === 'object' && x !== null. Better yet, use a dedicated type-guard function."
+  },
+  "llm-deprecated-pandas-append": {
+    "problem": "DataFrame.append() was removed in pandas 2.0. Code using it was likely generated by an AI assistant trained on older pandas documentation.",
+    "impact": "The code raises AttributeError at runtime on pandas 2.0 and later.",
+    "fix": "Replace df.append(other) with pd.concat([df, other], ignore_index=True)."
+  },
+  "llm-deprecated-react-lifecycle": {
+    "problem": "componentWillMount is deprecated in React 16.3 and removed in React 18. AI code generators frequently produce it because it appeared in older tutorials.",
+    "impact": "The component will fail in strict mode, and the code will break entirely in React 18.",
+    "fix": "Move initialization logic to componentDidMount or, better yet, convert to a functional component using useEffect."
+  },
+  "llm-fake-numpy-fast-dot": {
+    "problem": "np.fast_dot does not exist in NumPy. It was hallucinated by an AI assistant as a plausible-sounding performance variant of np.dot.",
+    "impact": "AttributeError at runtime.",
+    "fix": "Use np.dot(a, b) or the @ operator (a @ b) for matrix multiplication."
+  },
+  "llm-fake-pandas-clean-csv": {
+    "problem": "df.to_clean_csv() does not exist in pandas. It was hallucinated by an AI assistant. The real method is to_csv() with options.",
+    "impact": "AttributeError at runtime.",
+    "fix": "Use df.to_csv('file.csv', index=False) to write a clean CSV without the index column."
+  },
+  "logic-conditional-side-effect": {
+    "problem": "A side-effecting statement appears directly inside an if without a block. This is fragile and may indicate missing braces or an accidental guard condition.",
+    "impact": "Refactoring the condition or adding another statement can silently change which code is guarded by the if.",
+    "fix": "Always use explicit braces for if blocks, even for single-statement bodies: if (cond) { statement; }"
+  },
+  "logic-fetch-no-error-check": {
+    "problem": "fetch() does not throw on HTTP errors like 404 or 500 — it only throws on network failures. Using response.json() directly without checking response.ok silently processes error responses.",
+    "impact": "Your code may process an error page's HTML as if it were valid JSON, causing cryptic parse errors or incorrect data.",
+    "fix": "Check response.ok before consuming the body: if (!response.ok) throw new Error(response.statusText); const data = await response.json();"
+  },
+  "logic-file-not-closed": {
+    "problem": "Opening a file with open() outside a with statement requires manually calling .close(). If an exception occurs before .close(), the file descriptor leaks.",
+    "impact": "File descriptor leaks can cause the program to crash with 'too many open files' errors under load.",
+    "fix": "Use a with statement: with open(path) as f: ... — it guarantees the file is closed even if an exception is raised."
+  },
+  "logic-json-parse-no-try": {
+    "problem": "JSON.parse() throws a SyntaxError if the input is not valid JSON. If the call is not wrapped in try/catch, a malformed response will crash the application.",
+    "impact": "Unhandled exception from a single bad API response can crash the entire page or service.",
+    "fix": "Wrap in try/catch: try { const data = JSON.parse(text); } catch { /* handle invalid JSON */ }"
+  },
+  "logic-lock-without-unlock": {
+    "problem": "Calling lock.acquire() without a try/finally block means the lock will not be released if an exception is raised in the protected code.",
+    "impact": "A deadlock will occur — other threads waiting on the lock will block forever.",
+    "fix": "Use a with statement: with lock: ... — it acquires and releases automatically, even on exceptions."
+  },
+  "logic-unhandled-promise-rejection": {
+    "problem": "A .then() chain without a .catch() will silently swallow any rejection. In Node.js, unhandled rejections can crash the process in newer versions.",
+    "impact": "Errors are hidden and the application can reach an invalid state with no indication of what went wrong.",
+    "fix": "Always append .catch(err => ...) to promise chains, or use async/await with try/catch."
+  },
+  "quality-any-type": {
+    "problem": "TypeScript's any type disables all type checking for that value. Using it defeats the purpose of TypeScript and makes the code as unsafe as plain JavaScript.",
+    "impact": "Type errors that TypeScript would normally catch at compile time will become runtime crashes.",
+    "fix": "Replace any with the specific type, unknown (for truly unknown data), or a generic type parameter."
+  },
+  "quality-console-log-prod": {
+    "problem": "console.log() statements left in production code pollute the browser console and may accidentally expose sensitive data to users.",
+    "impact": "Sensitive information (tokens, user data) can be leaked to the browser console. The console fills with noise that hides real errors.",
+    "fix": "Remove console.log before committing, or replace with a structured logger that can be disabled in production."
+  },
+  "quality-long-function": {
+    "problem": "Functions that span many lines are harder to understand, test, and maintain. They often do too many things at once.",
+    "impact": "Bugs are harder to find, tests are harder to write, and changes in one part of the function can unexpectedly affect other parts.",
+    "fix": "Split the function into smaller, focused helper functions. Aim for functions under 40-50 lines that each do one thing."
+  },
+  "quality-magic-number": {
+    "problem": "A numeric literal with no obvious meaning is embedded directly in code. Future readers cannot tell what the number represents or why it has that specific value.",
+    "impact": "Maintenance becomes error-prone: the same magic number may be duplicated, and changing it requires finding every occurrence.",
+    "fix": "Extract the number to a named constant at the top of the file or module: MAX_RETRIES = 3."
+  },
+  "quality-no-docstring": {
+    "problem": "A public Python function has no docstring to explain what it does, what parameters it accepts, and what it returns.",
+    "impact": "Other developers (and tools like help() or IDEs) cannot understand the function's purpose without reading its implementation.",
+    "fix": "Add a docstring immediately after the def line: \"\"\"Brief description. Args: x: ... Returns: ...\"\"\""
+  },
+  "quality-no-jsdoc": {
+    "problem": "An exported TypeScript function has no JSDoc comment, so its purpose, parameters, and return value are not documented.",
+    "impact": "IDEs cannot show hover documentation, and other developers must read the implementation to understand how to use the function.",
+    "fix": "Add a JSDoc comment above the function: /** Description. @param name - what it does. @returns what comes back. */"
+  },
+  "quality-todo-comment": {
+    "problem": "A TODO comment marks incomplete or deferred work. If not tracked elsewhere, it may never be resolved and will age into misleading technical debt.",
+    "impact": "Unresolved TODOs accumulate, making the codebase harder to trust. They can indicate missing validations or incomplete features.",
+    "fix": "Either fix the issue now, create a tracked ticket and reference it in the comment (TODO #123), or remove the comment if it is no longer relevant."
+  },
+  "quality-too-many-args": {
+    "problem": "A function with many positional arguments is hard to call correctly — callers must remember the exact order and meaning of each argument.",
+    "impact": "Arguments are easily passed in the wrong order, causing subtle bugs that are hard to debug.",
+    "fix": "Group related arguments into a dataclass or dict, or use keyword-only arguments: def f(*, name, value, ...)."
   }
 }

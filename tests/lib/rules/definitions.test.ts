@@ -37,7 +37,7 @@ describe('All shipped rules', () => {
     }
   });
 
-  it('covers all 30 expected rule files', () => {
-    expect(files.length).toBe(30);
+  it('covers all 60 expected rule files', () => {
+    expect(files.length).toBe(60);
   });
 });

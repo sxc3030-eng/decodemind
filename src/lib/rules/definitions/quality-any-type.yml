@@ -1,0 +1,8 @@
+id: quality-any-type
+language: TypeScript
+category: quality
+severity: info
+message: Using `any` defeats type checking
+rule:
+  pattern: "$VAR: any"
+# TODO: also catch function return type `: any`, generic `<any>`, and cast `as any`.

@@ -1,4 +1,5 @@
 import type * as webllm from '@mlc-ai/web-llm';
+import { getCached, putCached, makeKey, evictIfNeeded } from '@/lib/cache/translationCache';
 
 export type ReplyLanguage = 'en' | 'fr';
 
@@ -66,4 +67,29 @@ export async function translateFinding(
   }
   const content = response.choices[0]?.message?.content;
   return typeof content === 'string' ? content : '';
+}
+
+export async function translateFindingCached(
+  engine: webllm.MLCEngineInterface,
+  finding: Finding,
+  replyLanguage: ReplyLanguage,
+  modelTier: string,
+): Promise<{ content: string; cacheHit: boolean }> {
+  const key = await makeKey(finding.ruleId, finding.codeSnippet, replyLanguage);
+  const hit = await getCached(key);
+  if (hit) return { content: hit.content, cacheHit: true };
+
+  const content = await translateFinding(engine, finding, replyLanguage);
+
+  await putCached({
+    key,
+    ruleId: finding.ruleId,
+    language: replyLanguage,
+    modelTier,
+    content,
+  });
+  // Best-effort eviction (don't await unless it fails)
+  evictIfNeeded().catch(() => { /* ignore */ });
+
+  return { content, cacheHit: false };
 }
