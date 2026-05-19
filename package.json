@@ -33,6 +33,7 @@
     "@astral-sh/ruff-wasm-web": "^0.15.13",
     "@mlc-ai/web-llm": "^0.2.83",
     "eslint-linter-browserify": "^10.4.0",
+    "prettier": "^3.8.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   }
