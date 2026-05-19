@@ -11,7 +11,9 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    globals: true,
+    // Note: globals NOT enabled — tests use explicit imports from 'vitest'.
+    // This gives go-to-definition, self-documents each file, and avoids needing
+    // "types": ["vitest/globals"] in tsconfig.json.
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.{ts,tsx}'],
   },
