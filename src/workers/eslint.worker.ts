@@ -63,9 +63,18 @@ const COMMON_GLOBALS: Record<string, 'readonly' | 'writable'> = {
   // Node globals that show up frequently in mixed environments
   process: 'readonly',
   Buffer: 'readonly',
+  // CommonJS globals — needed for .js files using require()/module.exports.
+  // Without these, Node-style scripts get false-positive no-undef on every
+  // module-level statement.
+  require: 'readonly',
+  module: 'readonly',
+  exports: 'readonly',
+  __dirname: 'readonly',
+  __filename: 'readonly',
+  global: 'readonly',
 };
 
-const config: LinterType.Config = {
+const ESM_CONFIG: LinterType.Config = {
   languageOptions: {
     ecmaVersion: 2022,
     sourceType: 'module',
@@ -83,10 +92,37 @@ const config: LinterType.Config = {
   },
 };
 
+// Same rules, but for CommonJS files (.cjs or .js files using require()).
+// sourceType: 'script' means top-level await is disallowed and CommonJS is
+// the intended module system.
+const CJS_CONFIG: LinterType.Config = {
+  ...ESM_CONFIG,
+  languageOptions: {
+    ...ESM_CONFIG.languageOptions,
+    sourceType: 'script',
+  },
+};
+
+/**
+ * Pick the right config for the file. CommonJS heuristic:
+ *  - `.cjs` extension → CJS
+ *  - Otherwise, peek at the source for a top-level `require(`/`module.exports`
+ *    in the first 4 KB — that's a reliable CommonJS marker
+ */
+function pickConfig(filename: string, source: string): LinterType.Config {
+  if (filename.endsWith('.cjs')) return CJS_CONFIG;
+  const head = source.slice(0, 4096);
+  if (/\brequire\s*\(/.test(head) || /\bmodule\.exports\b/.test(head)) {
+    return CJS_CONFIG;
+  }
+  return ESM_CONFIG;
+}
+
 self.onmessage = (event: MessageEvent<EslintRequest>) => {
   if (event.data.type !== 'lint') return;
   const start = performance.now();
   try {
+    const config = pickConfig(event.data.filename, event.data.source);
     const messages = linter.verify(
       event.data.source,
       config,
