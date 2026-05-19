@@ -72,7 +72,61 @@ const COMMON_GLOBALS: Record<string, 'readonly' | 'writable'> = {
   __dirname: 'readonly',
   __filename: 'readonly',
   global: 'readonly',
+  // Modern Web/Node platform globals (Node 16+ / all modern browsers).
+  performance: 'readonly',
+  crypto: 'readonly',
+  TextEncoder: 'readonly',
+  TextDecoder: 'readonly',
+  AbortController: 'readonly',
+  AbortSignal: 'readonly',
+  queueMicrotask: 'readonly',
+  structuredClone: 'readonly',
+  atob: 'readonly',
+  btoa: 'readonly',
+  Blob: 'readonly',
+  File: 'readonly',
+  FormData: 'readonly',
+  Headers: 'readonly',
+  Request: 'readonly',
+  Response: 'readonly',
+  Event: 'readonly',
+  EventTarget: 'readonly',
+  CustomEvent: 'readonly',
+  MessageEvent: 'readonly',
+  Worker: 'readonly',
+  Error: 'readonly',
+  TypeError: 'readonly',
+  RangeError: 'readonly',
+  SyntaxError: 'readonly',
+  ReferenceError: 'readonly',
+  EvalError: 'readonly',
+  URIError: 'readonly',
 };
+
+// Test-runner globals (Vitest + Jest share the same surface for these).
+// Auto-included for files matching test/spec naming patterns.
+const TEST_GLOBALS: Record<string, 'readonly' | 'writable'> = {
+  describe: 'readonly',
+  it: 'readonly',
+  test: 'readonly',
+  expect: 'readonly',
+  vi: 'readonly',
+  jest: 'readonly',
+  before: 'readonly',
+  beforeAll: 'readonly',
+  beforeEach: 'readonly',
+  after: 'readonly',
+  afterAll: 'readonly',
+  afterEach: 'readonly',
+  suite: 'readonly',
+  bench: 'readonly',
+};
+
+function isTestFile(filename: string): boolean {
+  return /(\.|^)(test|spec)\.(js|jsx|ts|tsx|mjs|cjs)$/.test(filename)
+    || filename.includes('/__tests__/')
+    || filename.includes('\\__tests__\\');
+}
 
 const ESM_CONFIG: LinterType.Config = {
   languageOptions: {
@@ -110,12 +164,27 @@ const CJS_CONFIG: LinterType.Config = {
  *    in the first 4 KB — that's a reliable CommonJS marker
  */
 function pickConfig(filename: string, source: string): LinterType.Config {
-  if (filename.endsWith('.cjs')) return CJS_CONFIG;
-  const head = source.slice(0, 4096);
-  if (/\brequire\s*\(/.test(head) || /\bmodule\.exports\b/.test(head)) {
-    return CJS_CONFIG;
-  }
-  return ESM_CONFIG;
+  const isCjs =
+    filename.endsWith('.cjs') ||
+    (() => {
+      const head = source.slice(0, 4096);
+      return /\brequire\s*\(/.test(head) || /\bmodule\.exports\b/.test(head);
+    })();
+
+  const baseConfig = isCjs ? CJS_CONFIG : ESM_CONFIG;
+  if (!isTestFile(filename)) return baseConfig;
+
+  // Test file: layer test globals on top of the base globals
+  return {
+    ...baseConfig,
+    languageOptions: {
+      ...baseConfig.languageOptions,
+      globals: {
+        ...(baseConfig.languageOptions?.globals ?? {}),
+        ...TEST_GLOBALS,
+      },
+    },
+  };
 }
 
 self.onmessage = (event: MessageEvent<EslintRequest>) => {
