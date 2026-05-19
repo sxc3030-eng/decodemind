@@ -9,7 +9,9 @@ export interface ModelDescriptor {
   recommendation: string;
 }
 
-export const MODELS: Record<Tier, ModelDescriptor> = {
+// Deep-readonly via `as const satisfies` — prevents accidental mutation of the
+// global registry from any consumer (tests, loader, UI, etc.).
+export const MODELS = {
   quick: {
     tier: 'quick',
     modelId: 'Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC',
@@ -29,12 +31,12 @@ export const MODELS: Record<Tier, ModelDescriptor> = {
   best: {
     tier: 'best',
     modelId: 'Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC',
-    approxDiskBytes: Math.round(4.1 * 1024 * 1024 * 1024),
-    approxVramBytes: Math.round(5.1 * 1024 * 1024 * 1024),
+    approxDiskBytes: 4198 * 1024 * 1024, // ~4.1 GiB
+    approxVramBytes: 5222 * 1024 * 1024, // ~5.1 GiB
     label: 'Best (7B)',
     recommendation: 'Power users only. Requires desktop GPU with >=6 GB VRAM.',
   },
-};
+} as const satisfies Record<Tier, ModelDescriptor>;
 
 export interface AdapterInfo {
   vendor: string;

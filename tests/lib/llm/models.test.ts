@@ -42,4 +42,12 @@ describe('pickDefaultTier', () => {
   it('returns better for Apple Silicon', () => {
     expect(pickDefaultTier({ vendor: 'apple', architecture: 'apple-7' })).toBe('better');
   });
+
+  it('returns better for AMD dGPU', () => {
+    expect(pickDefaultTier({ vendor: 'amd', architecture: 'rdna3' })).toBe('better');
+  });
+
+  it('returns quick for unknown vendor (silent fallback)', () => {
+    expect(pickDefaultTier({ vendor: 'qualcomm', architecture: 'adreno' })).toBe('quick');
+  });
 });
