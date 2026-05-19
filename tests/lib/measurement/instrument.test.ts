@@ -16,6 +16,13 @@ describe('startTimer', () => {
     vi.advanceTimersByTime(2000);
     expect(t.toString()).toBe('load-model: 2000 ms');
   });
+
+  it('toString works when detached from the timer object', () => {
+    const t = startTimer('detached');
+    vi.advanceTimersByTime(500);
+    const fn = t.toString;
+    expect(fn()).toBe('detached: 500 ms');
+  });
 });
 
 describe('formatBytes', () => {
@@ -23,6 +30,8 @@ describe('formatBytes', () => {
   it('formats MB', () => expect(formatBytes(1024 * 1024 * 5)).toBe('5.0 MB'));
   it('formats GB', () => expect(formatBytes(1024 ** 3 * 2.5)).toBe('2.5 GB'));
   it('handles 0', () => expect(formatBytes(0)).toBe('0 B'));
+  it('handles negative as "? B"', () => expect(formatBytes(-1)).toBe('? B'));
+  it('handles NaN as "? B"', () => expect(formatBytes(NaN)).toBe('? B'));
 });
 
 describe('formatDuration', () => {
