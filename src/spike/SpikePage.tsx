@@ -1,0 +1,250 @@
+import { useState } from 'react';
+import { MODELS, type Tier } from '@/lib/llm/models';
+import { detectAdapter, loadModel } from '@/lib/llm/loader';
+import { translateFinding } from '@/lib/llm/translator';
+import { startTimer } from '@/lib/measurement/instrument';
+import type { RuffResponse } from '@/workers/ruff.worker';
+import type { EslintResponse } from '@/workers/eslint.worker';
+import type { PrettierResponse } from '@/workers/prettier.worker';
+import { ResultsTable, type Measurement } from './ResultsTable';
+import { PYTHON_SAMPLE, TYPESCRIPT_SAMPLE, HTML_SAMPLE, SAMPLE_FINDING } from './fixtures';
+
+type WorkerResponse = RuffResponse | EslintResponse | PrettierResponse;
+
+export function SpikePage() {
+  const [tier, setTier] = useState<Tier>('quick');
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string>('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [engine, setEngine] = useState<any>(null);
+
+  const push = (m: Measurement) => setMeasurements((prev) => [...prev, m]);
+
+  async function runDetectAdapter() {
+    setBusy('detect-adapter');
+    try {
+      const adapter = await detectAdapter();
+      push({
+        label: 'WebGPU adapter',
+        note: adapter ? `${adapter.vendor} / ${adapter.architecture}` : 'not available',
+      });
+    } catch (e) {
+      push({ label: 'WebGPU adapter', note: `FAILED: ${(e as Error).message}` });
+    }
+    setBusy(null);
+  }
+
+  async function runLoadModel() {
+    setBusy('load-model');
+    setProgress('starting download…');
+    try {
+      const result = await loadModel(tier, (p) =>
+        setProgress(`${Math.round(p.progress * 100)}% — ${p.text}`),
+      );
+      setEngine(result.engine);
+      push({
+        label: `Load ${MODELS[tier].label}`,
+        durationMs: result.loadTimer.elapsedMs(),
+        bytes: MODELS[tier].approxDiskBytes,
+        note: 'cold load (first time, then cached)',
+      });
+      setProgress('loaded');
+    } catch (e) {
+      push({ label: `Load ${MODELS[tier].label}`, note: `FAILED: ${(e as Error).message}` });
+      setProgress('');
+    }
+    setBusy(null);
+  }
+
+  async function runTranslate() {
+    if (!engine) {
+      push({ label: 'Translate 1 finding', note: 'no engine loaded' });
+      return;
+    }
+    setBusy('translate-1');
+    const t = startTimer();
+    try {
+      const out = await translateFinding(engine, SAMPLE_FINDING, 'en');
+      push({
+        label: 'Translate 1 finding',
+        durationMs: t.elapsedMs(),
+        count: out.length,
+        note: `${out.slice(0, 60)}…`,
+      });
+    } catch (e) {
+      push({ label: 'Translate 1 finding', note: `FAILED: ${(e as Error).message}` });
+    }
+    setBusy(null);
+  }
+
+  async function runTranslateBatch() {
+    if (!engine) {
+      push({ label: 'Translate batch of 8', note: 'no engine loaded' });
+      return;
+    }
+    setBusy('translate-8');
+    const t = startTimer();
+    try {
+      for (let i = 0; i < 8; i++) {
+        await translateFinding(
+          engine,
+          { ...SAMPLE_FINDING, ruleId: `${SAMPLE_FINDING.ruleId}-${i}` },
+          'en',
+        );
+      }
+      push({
+        label: 'Translate batch of 8 (sequential)',
+        durationMs: t.elapsedMs(),
+        count: 8,
+        note: `avg ${Math.round(t.elapsedMs() / 8)} ms/finding`,
+      });
+    } catch (e) {
+      push({ label: 'Translate batch of 8', note: `FAILED: ${(e as Error).message}` });
+    }
+    setBusy(null);
+  }
+
+  async function runWorker<TReq, TRes extends WorkerResponse>(
+    workerUrl: URL,
+    request: TReq,
+    label: string,
+    extractMetrics: (res: Extract<TRes, { type: 'result' }>) => Omit<Measurement, 'label'>,
+  ) {
+    const worker = new Worker(workerUrl, { type: 'module' });
+    const t = startTimer();
+    worker.postMessage(request);
+    const result = await new Promise<TRes>((resolve) => {
+      worker.onmessage = (e) => resolve(e.data);
+    });
+    worker.terminate();
+    if (result.type === 'error') {
+      push({ label, durationMs: t.elapsedMs(), note: `FAILED: ${result.message}` });
+      return;
+    }
+    push({ label, durationMs: t.elapsedMs(), ...extractMetrics(result as Extract<TRes, { type: 'result' }>) });
+  }
+
+  async function runRuff() {
+    setBusy('ruff');
+    await runWorker<{ type: 'scan'; source: string }, RuffResponse>(
+      new URL('@/workers/ruff.worker.ts', import.meta.url),
+      { type: 'scan', source: PYTHON_SAMPLE },
+      'Ruff scan (sample.py)',
+      (res) => ({ count: res.diagnostics.length, note: `worker reported ${res.elapsedMs} ms internally` }),
+    );
+    setBusy(null);
+  }
+
+  async function runEslint() {
+    setBusy('eslint');
+    await runWorker<{ type: 'lint'; source: string; filename: string }, EslintResponse>(
+      new URL('@/workers/eslint.worker.ts', import.meta.url),
+      { type: 'lint', source: TYPESCRIPT_SAMPLE, filename: 'sample.ts' },
+      'ESLint scan (sample.ts)',
+      (res) => ({ count: res.messages.length, note: `worker reported ${res.elapsedMs} ms internally` }),
+    );
+    setBusy(null);
+  }
+
+  async function runPrettier() {
+    setBusy('prettier');
+    await runWorker<{ type: 'format'; source: string; parser: 'html' }, PrettierResponse>(
+      new URL('@/workers/prettier.worker.ts', import.meta.url),
+      { type: 'format', source: HTML_SAMPLE, parser: 'html' },
+      'Prettier format (sample.html)',
+      (res) => ({ bytes: res.formatted.length, note: `worker reported ${res.elapsedMs} ms internally` }),
+    );
+    setBusy(null);
+  }
+
+  function exportJson() {
+    const blob = new Blob([JSON.stringify(measurements, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `decodemind-spike-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <header>
+        <h1 className="text-3xl font-bold">DecodeMind — Phase 0 Spike</h1>
+        <p className="text-brand-muted">
+          Click each button in order. Then export JSON and paste into the findings doc.
+        </p>
+      </header>
+
+      <section className="bg-brand-card rounded-lg p-4 space-y-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="text-sm">Model tier:</label>
+          <select
+            value={tier}
+            onChange={(e) => setTier(e.target.value as Tier)}
+            className="bg-brand-surface border border-brand-muted rounded px-2 py-1"
+          >
+            {(['quick', 'better', 'best'] as Tier[]).map((t) => (
+              <option key={t} value={t}>
+                {MODELS[t].label}
+              </option>
+            ))}
+          </select>
+          <span className="text-sm text-brand-muted">{MODELS[tier].recommendation}</span>
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={runDetectAdapter} disabled={!!busy}>Detect WebGPU adapter</Button>
+          <Button onClick={runLoadModel} disabled={!!busy}>Load model</Button>
+          <Button onClick={runTranslate} disabled={!!busy || !engine}>Translate 1 finding</Button>
+          <Button onClick={runTranslateBatch} disabled={!!busy || !engine}>Translate batch of 8</Button>
+          <Button onClick={runRuff} disabled={!!busy}>Scan Python with Ruff</Button>
+          <Button onClick={runEslint} disabled={!!busy}>Lint TS with ESLint</Button>
+          <Button onClick={runPrettier} disabled={!!busy}>Format HTML with Prettier</Button>
+        </div>
+
+        {busy && <p className="text-sm text-brand-accent">⏳ {busy} — {progress}</p>}
+      </section>
+
+      <section className="bg-brand-card rounded-lg p-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold">Measurements</h2>
+          <Button onClick={exportJson} disabled={measurements.length === 0}>
+            Export JSON
+          </Button>
+        </div>
+        <ResultsTable measurements={measurements} />
+      </section>
+
+      <section className="bg-brand-card rounded-lg p-4 text-sm text-brand-muted">
+        <p className="font-semibold mb-1">Note: ast-grep button is omitted from this spike.</p>
+        <p>
+          The ast-grep worker requires tree-sitter grammar .wasm files served from <code>/tree-sitter-&lt;lang&gt;.wasm</code>.
+          Setting this up is a separate task; the worker compiles and the message contract is verified by typecheck,
+          but a live scan needs the grammar copied to <code>public/</code>.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function Button({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick: () => void | Promise<void>;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="bg-brand-primary hover:bg-blue-700 disabled:bg-brand-muted disabled:cursor-not-allowed text-white text-sm px-3 py-1.5 rounded transition-colors"
+    >
+      {children}
+    </button>
+  );
+}
