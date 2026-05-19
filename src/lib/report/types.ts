@@ -1,3 +1,5 @@
+import type { NormalizedEdit } from '@/lib/fixes/applyEdit';
+
 export type FindingCategory = 'security' | 'bug' | 'logic' | 'quality';
 export type FindingSeverity = 'error' | 'warning' | 'info';
 
@@ -13,6 +15,7 @@ export interface ReportFinding {
     impact: string;
     fix: string;
   };
+  edits?: NormalizedEdit[];
 }
 
 export interface Report {

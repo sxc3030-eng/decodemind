@@ -10,7 +10,13 @@ const SECTION_META: Record<FindingCategory, { icon: string; label: string; defau
   quality:  { icon: '✨', label: 'Quality',  defaultOpen: false },
 };
 
-export function SectionedReport({ report }: { report: Report }) {
+export function SectionedReport({
+  report,
+  onApplyFinding,
+}: {
+  report: Report;
+  onApplyFinding?: (finding: import('@/lib/report/types').ReportFinding) => Promise<void>;
+}) {
   const grouped = groupByCategory(report.findings);
   const [openSections, setOpenSections] = useState<Record<FindingCategory, boolean>>({
     security: SECTION_META.security.defaultOpen,
@@ -70,7 +76,13 @@ export function SectionedReport({ report }: { report: Report }) {
                     {cat === 'security' ? 'No security findings 🎉' : 'No findings'}
                   </p>
                 ) : (
-                  items.map((f, i) => <FindingCard key={i} finding={f} />)
+                  items.map((f, i) => (
+                    <FindingCard
+                      key={i}
+                      finding={f}
+                      onApply={onApplyFinding ? () => onApplyFinding(f) : undefined}
+                    />
+                  ))
                 )}
               </div>
             )}

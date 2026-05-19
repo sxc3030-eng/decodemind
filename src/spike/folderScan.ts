@@ -2,6 +2,8 @@ import ignore from 'ignore';
 import type { RuffResponse } from '@/workers/ruff.worker';
 import type { EslintResponse } from '@/workers/eslint.worker';
 import type { PrettierResponse } from '@/workers/prettier.worker';
+import type { NormalizedEdit } from '@/lib/fixes/applyEdit';
+import { ruffFixToEdits } from '@/lib/fixes/convertRuffFix';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -62,6 +64,7 @@ export interface AggregatedFinding {
   severity: 'error' | 'warning' | 'info';
   ruleId: string | null;
   message: string;
+  edits?: NormalizedEdit[];  // present when the scanner provided a fix
 }
 
 export interface FolderScanReport {
@@ -310,6 +313,7 @@ export async function scanAllFiles(
           filesSkipped++;
         } else {
           for (const d of res.diagnostics) {
+            const edits = ruffFixToEdits(d);
             findings.push({
               file: file.path,
               line: d.start_location.row,
@@ -318,6 +322,7 @@ export async function scanAllFiles(
                 : 'warning',
               ruleId: d.code,
               message: d.message,
+              ...(edits.length > 0 ? { edits } : {}),
             });
           }
           filesScanned++;

@@ -12,6 +12,13 @@ import { collectFiles, scanAllFiles, type ScannerKind, type FolderScanReport } f
 import { FolderScanResults } from './FolderScanResults';
 import { usePersistentDirectoryHandle } from '@/lib/hooks/usePersistentDirectoryHandle';
 import { filesFromInput } from './fileInputFallback';
+import { RootHandleProvider } from './RootHandleContext';
+import { toReport } from './toReport';
+import { SectionedReport } from '@/components/report/SectionedReport';
+import type { ReportFinding } from '@/lib/report/types';
+import { backupFile, writeFile } from '@/lib/fixes/backup';
+import { recordBackup } from '@/lib/fixes/backupHistory';
+import { applyEdits } from '@/lib/fixes/applyEdit';
 
 type WorkerResponse = RuffResponse | EslintResponse | PrettierResponse;
 
@@ -24,10 +31,36 @@ export function SpikePage() {
   const [engine, setEngine] = useState<any>(null);
   const [scanProgress, setScanProgress] = useState<string>('');
   const [folderReport, setFolderReport] = useState<FolderScanReport | null>(null);
+  const [rootHandle, setRootHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const { lastHandle, saveHandle, verifyPermission } = usePersistentDirectoryHandle();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const push = (m: Measurement) => setMeasurements((prev) => [...prev, m]);
+
+  async function handleApply(finding: ReportFinding): Promise<void> {
+    if (!rootHandle || !finding.edits || finding.edits.length === 0) {
+      throw new Error('Cannot apply: no rootHandle or no edits');
+    }
+    // 1. Read the current file content
+    const parts = finding.file.split('/');
+    let dir = rootHandle;
+    for (let i = 0; i < parts.length - 1; i++) {
+      dir = await dir.getDirectoryHandle(parts[i]);
+    }
+    const fileHandle = await dir.getFileHandle(parts[parts.length - 1]);
+    const file = await fileHandle.getFile();
+    const content = await file.text();
+
+    // 2. Backup
+    const backupRecord = await backupFile(rootHandle, finding.file, content);
+    await recordBackup(backupRecord);
+
+    // 3. Apply edits
+    const newContent = applyEdits(content, finding.edits);
+
+    // 4. Write back
+    await writeFile(rootHandle, finding.file, newContent);
+  }
 
   async function runDetectAdapter() {
     setBusy('detect-adapter');
@@ -209,12 +242,13 @@ export function SpikePage() {
     setScanProgress('Picking folder…');
     setFolderReport(null);
     try {
-      const rootHandle = await (window as typeof window & {
+      const pickedHandle = await (window as typeof window & {
         showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
       }).showDirectoryPicker();
+      setRootHandle(pickedHandle);
 
       setScanProgress('Collecting files…');
-      const { files, warnings } = await collectFiles(rootHandle);
+      const { files, warnings } = await collectFiles(pickedHandle);
 
       if (files.length === 0) {
         setScanProgress('No supported files found in the selected folder.');
@@ -240,7 +274,7 @@ export function SpikePage() {
       // Merge collectFiles warnings with scan warnings
       setFolderReport({ ...report, warnings: [...warnings, ...report.warnings] });
       setScanProgress('');
-      await saveHandle(rootHandle);
+      await saveHandle(pickedHandle);
     } catch (err) {
       // User cancelled the picker (AbortError) — clear quietly
       if ((err as { name?: string }).name !== 'AbortError') {
@@ -264,6 +298,7 @@ export function SpikePage() {
         setBusy(null);
         return;
       }
+      setRootHandle(lastHandle);
       setScanProgress('Collecting files…');
       const { files, warnings } = await collectFiles(lastHandle);
       if (files.length === 0) {
@@ -336,7 +371,10 @@ export function SpikePage() {
     URL.revokeObjectURL(url);
   }
 
+  const report = folderReport ? toReport(folderReport) : null;
+
   return (
+    <RootHandleProvider value={rootHandle}>
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <header>
         <h1 className="text-3xl font-bold">DecodeMind — Phase 0 Spike</h1>
@@ -412,6 +450,12 @@ export function SpikePage() {
         {folderReport && <FolderScanResults report={folderReport} />}
       </section>
 
+      {report && (
+        <section className="bg-brand-card rounded-lg p-4 space-y-3">
+          <SectionedReport report={report} onApplyFinding={handleApply} />
+        </section>
+      )}
+
       <section className="bg-brand-card rounded-lg p-4 space-y-3">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold">Measurements</h2>
@@ -431,6 +475,7 @@ export function SpikePage() {
         </p>
       </section>
     </div>
+    </RootHandleProvider>
   );
 }
 
