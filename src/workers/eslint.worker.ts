@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import { Linter } from 'eslint-linter-browserify';
+import type { Linter as LinterType } from 'eslint';
 
 export interface EslintRequest {
   type: 'lint';
@@ -64,7 +65,7 @@ const COMMON_GLOBALS: Record<string, 'readonly' | 'writable'> = {
   Buffer: 'readonly',
 };
 
-const config = {
+const config: LinterType.Config = {
   languageOptions: {
     ecmaVersion: 2022,
     sourceType: 'module',
@@ -86,13 +87,9 @@ self.onmessage = (event: MessageEvent<EslintRequest>) => {
   if (event.data.type !== 'lint') return;
   const start = performance.now();
   try {
-    // `as never` on the config is a TODO: eslint-linter-browserify's `Linter`
-    // re-exports from 'eslint' which is not in this project's devDependencies,
-    // so the parameter type resolves to `any`. Installing eslint as a devDep
-    // would unlock proper typing (Linter.FlatConfig). Tracked for V1 polish.
     const messages = linter.verify(
       event.data.source,
-      config as never,
+      config,
       event.data.filename,
     ) as EslintMessage[];
     const elapsedMs = Math.round(performance.now() - start);
