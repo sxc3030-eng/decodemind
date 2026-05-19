@@ -13,9 +13,11 @@ const SECTION_META: Record<FindingCategory, { icon: string; label: string; defau
 export function SectionedReport({
   report,
   onApplyFinding,
+  onRescan,
 }: {
   report: Report;
   onApplyFinding?: (finding: import('@/lib/report/types').ReportFinding) => Promise<void>;
+  onRescan?: () => void;
 }) {
   const grouped = groupByCategory(report.findings);
   const [openSections, setOpenSections] = useState<Record<FindingCategory, boolean>>({
@@ -39,6 +41,14 @@ export function SectionedReport({
           {' · '}
           {report.filesScanned} files scanned in {Math.round(report.elapsedMs)} ms
         </div>
+        {onRescan && (
+          <button
+            onClick={onRescan}
+            className="text-sm bg-brand-primary hover:bg-blue-700 text-white px-3 py-1 rounded mt-2"
+          >
+            Re-scan to refresh
+          </button>
+        )}
         {noisePct >= 60 && (
           <div className="mt-2 p-2 rounded bg-brand-warn/10 border border-brand-warn text-sm">
             Most findings are style. Consider adding noisy directories to <code>.decodemind-ignore</code>.

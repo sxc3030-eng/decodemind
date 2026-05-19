@@ -116,7 +116,7 @@ export function FindingCard({ finding, onIgnore, onApply }: FindingCardProps) {
             >
               {applyState === 'idle' && 'Apply fix'}
               {applyState === 'applying' && 'Applying…'}
-              {applyState === 'applied' && 'Applied ✓'}
+              {applyState === 'applied' && 'Applied'}
               {applyState === 'error' && 'Retry fix'}
             </button>
           )}
@@ -125,6 +125,11 @@ export function FindingCard({ finding, onIgnore, onApply }: FindingCardProps) {
               Ignore
             </button>
           )}
+        </div>
+      )}
+      {applyState === 'applied' && (
+        <div className="text-xs text-brand-accent mt-1">
+          Fix applied to disk. Click &quot;Re-scan to refresh&quot; at the top to refresh the report.
         </div>
       )}
     </div>

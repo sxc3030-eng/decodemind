@@ -1,4 +1,12 @@
 import { useRef, useState } from 'react';
+
+async function sha256(text: string): Promise<string> {
+  const buf = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 import { MODELS, type Tier } from '@/lib/llm/models';
 import { detectAdapter, loadModel } from '@/lib/llm/loader';
 import { translateFinding } from '@/lib/llm/translator';
@@ -41,31 +49,61 @@ export function SpikePage() {
     if (!rootHandle || !finding.edits || finding.edits.length === 0) {
       throw new Error('Cannot apply: no rootHandle or no edits');
     }
-    try {
-      // 1. Read the current file content
-      const parts = finding.file.split('/');
-      let dir = rootHandle;
-      for (let i = 0; i < parts.length - 1; i++) {
-        dir = await dir.getDirectoryHandle(parts[i]);
-      }
-      const fileHandle = await dir.getFileHandle(parts[parts.length - 1]);
-      const file = await fileHandle.getFile();
-      const content = await file.text();
 
-      // 2. Backup
-      const backupRecord = await backupFile(rootHandle, finding.file, content);
-      await recordBackup(backupRecord);
-
-      // 3. Apply edits
-      const newContent = applyEdits(content, finding.edits);
-
-      // 4. Write back
-      await writeFile(rootHandle, finding.file, newContent);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('DecodeMind apply error:', err);
-      throw err;
+    // 1. Walk to file
+    const parts = finding.file.split('/');
+    let dir = rootHandle;
+    for (let i = 0; i < parts.length - 1; i++) {
+      dir = await dir.getDirectoryHandle(parts[i]);
     }
+    const fileHandle = await dir.getFileHandle(parts[parts.length - 1]);
+
+    // 2. Read current content + hash
+    const fileBefore = await fileHandle.getFile();
+    const beforeContent = await fileBefore.text();
+    const beforeSha = await sha256(beforeContent);
+    // eslint-disable-next-line no-console
+    console.log(`[DecodeMind/apply] ${finding.file} before: ${beforeContent.length}b sha=${beforeSha.slice(0, 12)}`);
+
+    // 3. Backup
+    const backupRecord = await backupFile(rootHandle, finding.file, beforeContent);
+    await recordBackup(backupRecord);
+    // eslint-disable-next-line no-console
+    console.log(`[DecodeMind/apply] backup: ${backupRecord.backupPath}`);
+
+    // 4. Apply edits
+    const expectedContent = applyEdits(beforeContent, finding.edits);
+    const expectedSha = await sha256(expectedContent);
+    // eslint-disable-next-line no-console
+    console.log(`[DecodeMind/apply] expected after: ${expectedContent.length}b sha=${expectedSha.slice(0, 12)}`);
+
+    if (expectedSha === beforeSha) {
+      // eslint-disable-next-line no-console
+      console.warn(`[DecodeMind/apply] applyEdits produced identical content — the edit coordinates may not match this finding. Skipping write.`);
+      throw new Error('Edit produced no change — content identical before/after applyEdits');
+    }
+
+    // 5. Write
+    await writeFile(rootHandle, finding.file, expectedContent);
+
+    // 6. Verify: re-read fresh and hash
+    const fileAfter = await fileHandle.getFile();
+    const actualContent = await fileAfter.text();
+    const actualSha = await sha256(actualContent);
+    // eslint-disable-next-line no-console
+    console.log(`[DecodeMind/apply] actual after: ${actualContent.length}b sha=${actualSha.slice(0, 12)}`);
+
+    if (actualSha !== expectedSha) {
+      const msg =
+        `Write verification failed: file on disk does not match what we wrote. ` +
+        `Expected sha ${expectedSha.slice(0, 12)}…, got ${actualSha.slice(0, 12)}…. ` +
+        `Check if another tool (IDE auto-format, pre-commit hook) is overwriting.`;
+      // eslint-disable-next-line no-console
+      console.error(`[DecodeMind/apply] ${msg}`);
+      throw new Error(msg);
+    }
+    // eslint-disable-next-line no-console
+    console.log(`[DecodeMind/apply] VERIFY OK`);
   }
 
   async function runDetectAdapter() {
@@ -473,7 +511,11 @@ export function SpikePage() {
 
       {report && (
         <section className="bg-brand-card rounded-lg p-4 space-y-3">
-          <SectionedReport report={report} onApplyFinding={handleApply} />
+          <SectionedReport
+            report={report}
+            onApplyFinding={handleApply}
+            onRescan={rootHandle ? rescanLastHandle : undefined}
+          />
         </section>
       )}
 
