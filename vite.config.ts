@@ -20,9 +20,11 @@ export default defineConfig({
   },
   server: {
     headers: crossOriginIsolationHeaders,
+    open: true, // auto-open default browser on dev start
   },
   preview: {
     headers: crossOriginIsolationHeaders,
+    open: true,
   },
   optimizeDeps: {
     exclude: ['@mlc-ai/web-llm', '@ast-grep/wasm', '@astral-sh/ruff-wasm-web'],
