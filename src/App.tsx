@@ -1,5 +1,10 @@
 import { SpikePage } from '@/spike/SpikePage';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default function App() {
-  return <SpikePage />;
+  return (
+    <ErrorBoundary>
+      <SpikePage />
+    </ErrorBoundary>
+  );
 }

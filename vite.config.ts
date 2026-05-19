@@ -15,7 +15,8 @@ export default defineConfig({
     react(),
     copyGrammarsPlugin(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+      devOptions: { enabled: false },
       workbox: {
         globPatterns: ['**/*.{js,css,html,wasm,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024, // 12 MB — accommodates ruff WASM blob (~10.6 MB)

@@ -41,25 +41,31 @@ export function SpikePage() {
     if (!rootHandle || !finding.edits || finding.edits.length === 0) {
       throw new Error('Cannot apply: no rootHandle or no edits');
     }
-    // 1. Read the current file content
-    const parts = finding.file.split('/');
-    let dir = rootHandle;
-    for (let i = 0; i < parts.length - 1; i++) {
-      dir = await dir.getDirectoryHandle(parts[i]);
+    try {
+      // 1. Read the current file content
+      const parts = finding.file.split('/');
+      let dir = rootHandle;
+      for (let i = 0; i < parts.length - 1; i++) {
+        dir = await dir.getDirectoryHandle(parts[i]);
+      }
+      const fileHandle = await dir.getFileHandle(parts[parts.length - 1]);
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+
+      // 2. Backup
+      const backupRecord = await backupFile(rootHandle, finding.file, content);
+      await recordBackup(backupRecord);
+
+      // 3. Apply edits
+      const newContent = applyEdits(content, finding.edits);
+
+      // 4. Write back
+      await writeFile(rootHandle, finding.file, newContent);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('DecodeMind apply error:', err);
+      throw err;
     }
-    const fileHandle = await dir.getFileHandle(parts[parts.length - 1]);
-    const file = await fileHandle.getFile();
-    const content = await file.text();
-
-    // 2. Backup
-    const backupRecord = await backupFile(rootHandle, finding.file, content);
-    await recordBackup(backupRecord);
-
-    // 3. Apply edits
-    const newContent = applyEdits(content, finding.edits);
-
-    // 4. Write back
-    await writeFile(rootHandle, finding.file, newContent);
   }
 
   async function runDetectAdapter() {
@@ -278,6 +284,8 @@ export function SpikePage() {
     } catch (err) {
       // User cancelled the picker (AbortError) — clear quietly
       if ((err as { name?: string }).name !== 'AbortError') {
+        // eslint-disable-next-line no-console
+        console.error('DecodeMind scan error:', err);
         setScanProgress(`Error: ${(err as Error).message}`);
       } else {
         setScanProgress('');
@@ -322,6 +330,8 @@ export function SpikePage() {
       setFolderReport({ ...report, warnings: [...warnings, ...report.warnings] });
       setScanProgress('');
     } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('DecodeMind scan error:', err);
       setScanProgress(`Error: ${(err as Error).message}`);
     }
     setBusy(null);
@@ -356,6 +366,8 @@ export function SpikePage() {
       setFolderReport({ ...report, warnings: [...warnings, ...report.warnings] });
       setScanProgress('');
     } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('DecodeMind scan error:', err);
       setScanProgress(`Error: ${(err as Error).message}`);
     }
     setBusy(null);
@@ -446,7 +458,16 @@ export function SpikePage() {
             </p>
           </div>
         )}
-        {scanProgress && <p className="text-sm text-brand-accent">⏳ {scanProgress}</p>}
+        {scanProgress && (
+          scanProgress.startsWith('Error:') ? (
+            <div className="bg-brand-danger/20 border border-brand-danger rounded p-3 text-sm">
+              <strong className="text-brand-danger">Scan failed.</strong> {scanProgress.slice(6).trim()}
+              <div className="text-xs text-brand-muted mt-1">Check DevTools Console for the full stack.</div>
+            </div>
+          ) : (
+            <p className="text-sm text-brand-accent">⏳ {scanProgress}</p>
+          )
+        )}
         {folderReport && <FolderScanResults report={folderReport} />}
       </section>
 
