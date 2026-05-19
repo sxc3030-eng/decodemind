@@ -8,6 +8,8 @@ import type { EslintResponse } from '@/workers/eslint.worker';
 import type { PrettierResponse } from '@/workers/prettier.worker';
 import { ResultsTable, type Measurement } from './ResultsTable';
 import { PYTHON_SAMPLE, TYPESCRIPT_SAMPLE, HTML_SAMPLE, SAMPLE_FINDING } from './fixtures';
+import { collectFiles, scanAllFiles, type ScannerKind, type FolderScanReport } from './folderScan';
+import { FolderScanResults } from './FolderScanResults';
 
 type WorkerResponse = RuffResponse | EslintResponse | PrettierResponse;
 
@@ -18,6 +20,8 @@ export function SpikePage() {
   const [progress, setProgress] = useState<string>('');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [engine, setEngine] = useState<any>(null);
+  const [scanProgress, setScanProgress] = useState<string>('');
+  const [folderReport, setFolderReport] = useState<FolderScanReport | null>(null);
 
   const push = (m: Measurement) => setMeasurements((prev) => [...prev, m]);
 
@@ -195,6 +199,54 @@ export function SpikePage() {
     }
   }
 
+  async function pickAndScan() {
+    if (!('showDirectoryPicker' in window)) return;
+    setBusy('folder-scan');
+    setScanProgress('Picking folder…');
+    setFolderReport(null);
+    try {
+      const rootHandle = await (window as typeof window & {
+        showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
+      }).showDirectoryPicker();
+
+      setScanProgress('Collecting files…');
+      const { files, warnings } = await collectFiles(rootHandle);
+
+      if (files.length === 0) {
+        setScanProgress('No supported files found in the selected folder.');
+        setBusy(null);
+        return;
+      }
+
+      setScanProgress(`Starting scan of ${files.length} files…`);
+
+      const report = await scanAllFiles(
+        files,
+        (done: Record<ScannerKind, number>, total: Record<ScannerKind, number>) => {
+          const parts: string[] = [];
+          if (total.ruff > 0) parts.push(`Ruff ${done.ruff}/${total.ruff}`);
+          if (total.eslint > 0) parts.push(`ESLint ${done.eslint}/${total.eslint}`);
+          const prettierDone = done['prettier-html'] + done['prettier-css'];
+          const prettierTotal = total['prettier-html'] + total['prettier-css'];
+          if (prettierTotal > 0) parts.push(`Prettier ${prettierDone}/${prettierTotal}`);
+          setScanProgress(`Scanning: ${parts.join(', ')}`);
+        },
+      );
+
+      // Merge collectFiles warnings with scan warnings
+      setFolderReport({ ...report, warnings: [...warnings, ...report.warnings] });
+      setScanProgress('');
+    } catch (err) {
+      // User cancelled the picker (AbortError) — clear quietly
+      if ((err as { name?: string }).name !== 'AbortError') {
+        setScanProgress(`Error: ${(err as Error).message}`);
+      } else {
+        setScanProgress('');
+      }
+    }
+    setBusy(null);
+  }
+
   function exportJson() {
     const blob = new Blob([JSON.stringify(measurements, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -242,6 +294,20 @@ export function SpikePage() {
         </div>
 
         {busy && <p className="text-sm text-brand-accent">⏳ {busy} — {progress}</p>}
+      </section>
+
+      <section className="bg-brand-card rounded-lg p-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold">Scan a real folder</h2>
+          <Button onClick={pickAndScan} disabled={!!busy}>Pick a folder…</Button>
+        </div>
+        {'showDirectoryPicker' in window ? null : (
+          <p className="text-sm text-brand-warn">
+            Your browser doesn&apos;t support folder picking. Use Chrome/Edge for this feature.
+          </p>
+        )}
+        {scanProgress && <p className="text-sm text-brand-accent">⏳ {scanProgress}</p>}
+        {folderReport && <FolderScanResults report={folderReport} />}
       </section>
 
       <section className="bg-brand-card rounded-lg p-4 space-y-3">

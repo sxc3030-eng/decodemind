@@ -1,0 +1,272 @@
+import type { RuffResponse } from '@/workers/ruff.worker';
+import type { EslintResponse } from '@/workers/eslint.worker';
+import type { PrettierResponse } from '@/workers/prettier.worker';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+export const IGNORED_DIRS = new Set([
+  'node_modules', '.git', 'dist', 'build', '.next', '.vite', '.turbo',
+  'coverage', 'out', 'target', 'venv', '.venv', '__pycache__',
+  '.vscode', '.idea', '.cache', '.parcel-cache', '.decodemind-backup',
+]);
+
+export const MAX_FILES = 500;
+export const MAX_FILE_BYTES = 1_000_000;
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+export type ScannerKind = 'ruff' | 'eslint' | 'prettier-html' | 'prettier-css';
+
+export const EXT_TO_SCANNER: Record<string, ScannerKind> = {
+  '.py': 'ruff',
+  '.ts': 'eslint', '.tsx': 'eslint', '.js': 'eslint', '.jsx': 'eslint',
+  '.mjs': 'eslint', '.cjs': 'eslint',
+  '.html': 'prettier-html', '.htm': 'prettier-html',
+  '.css': 'prettier-css', '.scss': 'prettier-css',
+};
+
+export interface ScanFile {
+  path: string;      // posix-style relative path from the picked root
+  content: string;
+  scanner: ScannerKind;
+}
+
+export interface AggregatedFinding {
+  file: string;
+  line: number | null;
+  severity: 'error' | 'warning' | 'info';
+  ruleId: string | null;
+  message: string;
+}
+
+export interface FolderScanReport {
+  filesScanned: number;
+  filesSkipped: number;   // oversized files we read but skipped
+  totalFiles: number;     // all matched files before MAX_FILES cap
+  findings: AggregatedFinding[];
+  elapsedMs: number;
+  warnings: string[];
+}
+
+// ─── collectFiles ─────────────────────────────────────────────────────────────
+
+/**
+ * Walk a FileSystemDirectoryHandle recursively, returning matched ScanFile[].
+ * Respects IGNORED_DIRS, MAX_FILES, and MAX_FILE_BYTES.
+ */
+export async function collectFiles(
+  root: FileSystemDirectoryHandle,
+): Promise<{ files: ScanFile[]; warnings: string[]; totalSeen: number }> {
+  const files: ScanFile[] = [];
+  const warnings: string[] = [];
+  let totalSeen = 0;
+
+  async function walk(dir: FileSystemDirectoryHandle, prefix: string): Promise<void> {
+    // FileSystemDirectoryHandle is async-iterable in browsers but TypeScript's
+    // DOM lib only gained this signature in newer versions. Cast to avoid the
+    // TS2504 error without requiring DOM.AsyncIterable in tsconfig.lib.
+    const iterable = dir as unknown as AsyncIterable<[string, FileSystemHandle]>;
+    for await (const [name, handle] of iterable) {
+      if (handle.kind === 'directory') {
+        if (IGNORED_DIRS.has(name)) continue;
+        await walk(handle as FileSystemDirectoryHandle, prefix ? `${prefix}/${name}` : name);
+      } else {
+        // It's a file — check extension
+        const dotIdx = name.lastIndexOf('.');
+        if (dotIdx === -1) continue;
+        const ext = name.slice(dotIdx).toLowerCase();
+        const scanner = EXT_TO_SCANNER[ext];
+        if (!scanner) continue;
+
+        totalSeen++;
+        if (files.length >= MAX_FILES) continue; // keep counting but don't add
+
+        const filePath = prefix ? `${prefix}/${name}` : name;
+        const fileHandle = handle as FileSystemFileHandle;
+        const file = await fileHandle.getFile();
+
+        if (file.size > MAX_FILE_BYTES) {
+          warnings.push(`Skipped ${filePath} (${(file.size / 1_048_576).toFixed(1)} MB > 1 MB limit)`);
+          continue;
+        }
+
+        const content = await file.text();
+        files.push({ path: filePath, content, scanner });
+      }
+    }
+  }
+
+  await walk(root, '');
+
+  if (totalSeen > MAX_FILES) {
+    warnings.unshift(
+      `Folder has ${totalSeen} files, scanning first ${MAX_FILES}. Use ignore list to narrow.`,
+    );
+  }
+
+  return { files, warnings, totalSeen };
+}
+
+// ─── scanAllFiles ─────────────────────────────────────────────────────────────
+
+// Worker URLs must be relative literals — NOT `@/` aliases — for Vite's static
+// analyzer to bundle them as separate worker chunks.
+function makeRuffWorker() {
+  return new Worker(new URL('../workers/ruff.worker.ts', import.meta.url), { type: 'module' });
+}
+function makeEslintWorker() {
+  return new Worker(new URL('../workers/eslint.worker.ts', import.meta.url), { type: 'module' });
+}
+function makePrettierWorker() {
+  return new Worker(new URL('../workers/prettier.worker.ts', import.meta.url), { type: 'module' });
+}
+
+/** Send one message to a worker and resolve with the response. */
+function ask<TReq, TRes>(worker: Worker, req: TReq): Promise<TRes> {
+  return new Promise<TRes>((resolve, reject) => {
+    worker.onmessage = (e: MessageEvent<TRes>) => resolve(e.data);
+    worker.onerror = (e) => reject(new Error(e.message || 'worker error'));
+    worker.onmessageerror = () => reject(new Error('worker messageerror'));
+    worker.postMessage(req);
+  });
+}
+
+function eslintSeverity(n: number): AggregatedFinding['severity'] {
+  if (n === 2) return 'error';
+  if (n === 1) return 'warning';
+  return 'info';
+}
+
+/**
+ * Run all files through the appropriate workers. One long-lived worker per
+ * scanner kind — not terminated between files.
+ * onProgress fires after each file completes.
+ */
+export async function scanAllFiles(
+  files: ScanFile[],
+  onProgress: (
+    done: Record<ScannerKind, number>,
+    total: Record<ScannerKind, number>,
+  ) => void,
+): Promise<FolderScanReport> {
+  const start = performance.now();
+  const findings: AggregatedFinding[] = [];
+  const warnings: string[] = [];
+
+  // Pre-count totals per scanner
+  const total: Record<ScannerKind, number> = {
+    ruff: 0, eslint: 0, 'prettier-html': 0, 'prettier-css': 0,
+  };
+  for (const f of files) total[f.scanner]++;
+
+  const done: Record<ScannerKind, number> = {
+    ruff: 0, eslint: 0, 'prettier-html': 0, 'prettier-css': 0,
+  };
+
+  // Lazy-spawn workers only if we have files that need them
+  const ruffWorker = total.ruff > 0 ? makeRuffWorker() : null;
+  const eslintWorker = total.eslint > 0 ? makeEslintWorker() : null;
+  const prettierWorker = (total['prettier-html'] + total['prettier-css']) > 0
+    ? makePrettierWorker()
+    : null;
+
+  let filesScanned = 0;
+  let filesSkipped = 0;
+
+  try {
+    for (const file of files) {
+      try {
+        if (file.scanner === 'ruff' && ruffWorker) {
+          const res = await ask<{ type: 'scan'; source: string }, RuffResponse>(
+            ruffWorker,
+            { type: 'scan', source: file.content },
+          );
+          if (res.type === 'error') {
+            warnings.push(`Ruff error on ${file.path}: ${res.message}`);
+            filesSkipped++;
+          } else {
+            for (const d of res.diagnostics) {
+              findings.push({
+                file: file.path,
+                line: d.start_location.row,
+                severity: d.code?.startsWith('E') || d.code?.startsWith('F')
+                  ? 'error'
+                  : 'warning',
+                ruleId: d.code,
+                message: d.message,
+              });
+            }
+            filesScanned++;
+          }
+          done.ruff++;
+
+        } else if (file.scanner === 'eslint' && eslintWorker) {
+          const res = await ask<{ type: 'lint'; source: string; filename: string }, EslintResponse>(
+            eslintWorker,
+            { type: 'lint', source: file.content, filename: file.path },
+          );
+          if (res.type === 'error') {
+            warnings.push(`ESLint error on ${file.path}: ${res.message}`);
+            filesSkipped++;
+          } else {
+            for (const m of res.messages) {
+              findings.push({
+                file: file.path,
+                line: m.line ?? null,
+                severity: eslintSeverity(m.severity),
+                ruleId: m.ruleId,
+                message: m.message,
+              });
+            }
+            filesScanned++;
+          }
+          done.eslint++;
+
+        } else if ((file.scanner === 'prettier-html' || file.scanner === 'prettier-css') && prettierWorker) {
+          const parser = file.scanner === 'prettier-html' ? 'html' : 'css';
+          const res = await ask<{ type: 'format'; source: string; parser: 'html' | 'css' }, PrettierResponse>(
+            prettierWorker,
+            { type: 'format', source: file.content, parser },
+          );
+          if (res.type === 'error') {
+            warnings.push(`Prettier error on ${file.path}: ${res.message}`);
+            filesSkipped++;
+          } else {
+            if (res.changed) {
+              findings.push({
+                file: file.path,
+                line: null,
+                severity: 'warning',
+                ruleId: 'prettier/format',
+                message: 'File is not formatted according to Prettier rules',
+              });
+            }
+            filesScanned++;
+          }
+          if (file.scanner === 'prettier-html') done['prettier-html']++;
+          else done['prettier-css']++;
+        }
+      } catch (err) {
+        warnings.push(`Scan failed for ${file.path}: ${(err as Error).message}`);
+        filesSkipped++;
+        // increment done counter to keep progress accurate
+        done[file.scanner]++;
+      }
+
+      onProgress({ ...done }, { ...total });
+    }
+  } finally {
+    ruffWorker?.terminate();
+    eslintWorker?.terminate();
+    prettierWorker?.terminate();
+  }
+
+  return {
+    filesScanned,
+    filesSkipped,
+    totalFiles: files.length,
+    findings,
+    elapsedMs: Math.round(performance.now() - start),
+    warnings,
+  };
+}
