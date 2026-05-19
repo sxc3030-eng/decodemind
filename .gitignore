@@ -47,6 +47,9 @@ test-results/
 .turbo/
 .next/
 
+# TypeScript incremental build artifacts
+*.tsbuildinfo
+
 # Models / WASM artifacts (these are downloaded at runtime, never committed)
 public/models/
 public/wasm/*.wasm
