@@ -1,0 +1,9 @@
+id: bug-missing-await
+language: TypeScript
+category: bug
+severity: warning
+message: Async function call result used without await
+rule:
+  pattern: const $VAR = $FN($$$ARGS)
+# TODO: This is a broad approximation. Ideally match only calls to async functions
+# without an await keyword. ast-grep cannot inspect the callee's async signature.

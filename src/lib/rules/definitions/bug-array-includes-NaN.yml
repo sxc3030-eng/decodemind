@@ -1,0 +1,8 @@
+id: bug-array-includes-NaN
+language: JavaScript
+category: bug
+severity: warning
+message: Array.prototype.includes(NaN) returns false unreliably
+rule:
+  pattern: $ARR.includes(NaN)
+# TODO: also match indexOf(NaN) which has the same pitfall.

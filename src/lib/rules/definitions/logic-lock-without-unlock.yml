@@ -1,0 +1,11 @@
+id: logic-lock-without-unlock
+language: Python
+category: logic
+severity: error
+message: Lock acquired without try/finally — deadlock risk on exception
+rule:
+  pattern: |
+    $LOCK.acquire()
+    $$$BODY
+# TODO: Only flag when not immediately inside a try/finally block.
+# ast-grep cannot inspect surrounding block structure with a simple pattern.

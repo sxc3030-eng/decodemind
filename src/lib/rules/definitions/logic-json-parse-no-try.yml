@@ -1,0 +1,9 @@
+id: logic-json-parse-no-try
+language: TypeScript
+category: logic
+severity: warning
+message: JSON.parse() throws on invalid input — wrap in try/catch
+rule:
+  pattern: JSON.parse($INPUT)
+# TODO: ideally flag only when the call is NOT inside a try block.
+# ast-grep cannot inspect enclosing try/catch without more complex rules.

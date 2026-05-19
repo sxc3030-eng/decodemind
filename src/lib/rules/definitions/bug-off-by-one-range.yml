@@ -1,0 +1,7 @@
+id: bug-off-by-one-range
+language: Python
+category: bug
+severity: info
+message: range(1, len(arr)) skips index 0 — likely off-by-one
+rule:
+  pattern: range(1, len($ARR))

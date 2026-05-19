@@ -1,0 +1,7 @@
+id: llm-fake-pandas-clean-csv
+language: Python
+category: bug
+severity: error
+message: df.to_clean_csv() does not exist — use to_csv() with options
+rule:
+  pattern: $DF.to_clean_csv($$$ARGS)

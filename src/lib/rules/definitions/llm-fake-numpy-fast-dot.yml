@@ -1,0 +1,7 @@
+id: llm-fake-numpy-fast-dot
+language: Python
+category: bug
+severity: error
+message: np.fast_dot does not exist — common LLM hallucination
+rule:
+  pattern: np.fast_dot($$$ARGS)

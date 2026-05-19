@@ -1,0 +1,9 @@
+id: quality-todo-comment
+language: JavaScript
+category: quality
+severity: info
+message: TODO comment found — track outside source if not actionable
+rule:
+  pattern: $ANY
+# TODO: ast-grep does not match comments with standard pattern syntax.
+# This is a placeholder; real detection requires regex on raw source text.

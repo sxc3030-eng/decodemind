@@ -1,0 +1,10 @@
+id: bug-mutable-default-arg
+language: Python
+category: bug
+severity: error
+message: Mutable default argument is shared across all calls
+rule:
+  pattern: |
+    def $FN($$$ARGS, $ARG=[]):
+      $$$BODY
+# TODO: also catch ={} dict default and =set() default
