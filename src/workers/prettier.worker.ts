@@ -9,29 +9,38 @@ import parserCss from 'prettier/plugins/postcss';
 export interface PrettierRequest {
   type: 'format';
   source: string;
+  // Note: 'babel' parser also handles JSON. Markdown is intentionally out of
+  // scope for Phase 0 — add 'markdown' here and import prettier/plugins/markdown
+  // when that scope expands.
   parser: 'babel' | 'typescript' | 'html' | 'css';
 }
 
-export interface PrettierResponse {
-  type: 'result';
-  formatted: string;
-  changed: boolean;
-  elapsedMs: number;
-}
+export type PrettierResponse =
+  | { type: 'result'; formatted: string; changed: boolean; elapsedMs: number }
+  | { type: 'error'; message: string };
+
+// TODO(V1): lazy-load plugins by parser type to shrink the worker's initial
+// bundle. For Phase 0 we eagerly load all five to keep the message handler
+// synchronous and predictable.
+const ALL_PLUGINS = [parserBabel, parserEstree, parserTypescript, parserHtml, parserCss];
 
 self.onmessage = async (event: MessageEvent<PrettierRequest>) => {
   if (event.data.type !== 'format') return;
-  const start = Date.now();
-  const formatted = await prettier.format(event.data.source, {
-    parser: event.data.parser,
-    plugins: [parserBabel, parserEstree, parserTypescript, parserHtml, parserCss],
-  });
-  const elapsedMs = Date.now() - start;
-  const response: PrettierResponse = {
-    type: 'result',
-    formatted,
-    changed: formatted !== event.data.source,
-    elapsedMs,
-  };
-  self.postMessage(response);
+  const start = performance.now();
+  try {
+    const formatted = await prettier.format(event.data.source, {
+      parser: event.data.parser,
+      plugins: ALL_PLUGINS,
+    });
+    const elapsedMs = Math.round(performance.now() - start);
+    self.postMessage({
+      type: 'result',
+      formatted,
+      changed: formatted !== event.data.source,
+      elapsedMs,
+    } satisfies PrettierResponse);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    self.postMessage({ type: 'error', message } satisfies PrettierResponse);
+  }
 };
