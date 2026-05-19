@@ -105,57 +105,94 @@ export function SpikePage() {
     setBusy(null);
   }
 
+  // Worker URLs MUST be relative literals (not `@/...` alias) for Vite's static
+  // analyzer to bundle them as separate worker chunks. Using the alias produces
+  // a broken inline data: URL in production build.
   async function runWorker<TReq, TRes extends WorkerResponse>(
     workerUrl: URL,
     request: TReq,
     label: string,
     extractMetrics: (res: Extract<TRes, { type: 'result' }>) => Omit<Measurement, 'label'>,
+    timeoutMs = 120_000,
   ) {
     const worker = new Worker(workerUrl, { type: 'module' });
     const t = startTimer();
-    worker.postMessage(request);
-    const result = await new Promise<TRes>((resolve) => {
-      worker.onmessage = (e) => resolve(e.data);
-    });
-    worker.terminate();
-    if (result.type === 'error') {
-      push({ label, durationMs: t.elapsedMs(), note: `FAILED: ${result.message}` });
-      return;
+    try {
+      worker.postMessage(request);
+      const result = await new Promise<TRes>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error(`worker timeout after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+        worker.onmessage = (e) => {
+          clearTimeout(timer);
+          resolve(e.data);
+        };
+        worker.onerror = (e) => {
+          clearTimeout(timer);
+          reject(new Error(e.message || 'worker error event'));
+        };
+        worker.onmessageerror = () => {
+          clearTimeout(timer);
+          reject(new Error('worker messageerror'));
+        };
+      });
+      if (result.type === 'error') {
+        push({ label, durationMs: t.elapsedMs(), note: `FAILED: ${result.message}` });
+        return;
+      }
+      push({
+        label,
+        durationMs: t.elapsedMs(),
+        ...extractMetrics(result as Extract<TRes, { type: 'result' }>),
+      });
+    } catch (err) {
+      push({ label, durationMs: t.elapsedMs(), note: `FAILED: ${(err as Error).message}` });
+    } finally {
+      worker.terminate();
     }
-    push({ label, durationMs: t.elapsedMs(), ...extractMetrics(result as Extract<TRes, { type: 'result' }>) });
   }
 
   async function runRuff() {
     setBusy('ruff');
-    await runWorker<{ type: 'scan'; source: string }, RuffResponse>(
-      new URL('@/workers/ruff.worker.ts', import.meta.url),
-      { type: 'scan', source: PYTHON_SAMPLE },
-      'Ruff scan (sample.py)',
-      (res) => ({ count: res.diagnostics.length, note: `worker reported ${res.elapsedMs} ms internally` }),
-    );
-    setBusy(null);
+    try {
+      await runWorker<{ type: 'scan'; source: string }, RuffResponse>(
+        new URL('../workers/ruff.worker.ts', import.meta.url),
+        { type: 'scan', source: PYTHON_SAMPLE },
+        'Ruff scan (sample.py)',
+        (res) => ({ count: res.diagnostics.length, note: `worker reported ${res.elapsedMs} ms internally` }),
+      );
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function runEslint() {
     setBusy('eslint');
-    await runWorker<{ type: 'lint'; source: string; filename: string }, EslintResponse>(
-      new URL('@/workers/eslint.worker.ts', import.meta.url),
-      { type: 'lint', source: TYPESCRIPT_SAMPLE, filename: 'sample.ts' },
-      'ESLint scan (sample.ts)',
-      (res) => ({ count: res.messages.length, note: `worker reported ${res.elapsedMs} ms internally` }),
-    );
-    setBusy(null);
+    try {
+      await runWorker<{ type: 'lint'; source: string; filename: string }, EslintResponse>(
+        new URL('../workers/eslint.worker.ts', import.meta.url),
+        { type: 'lint', source: TYPESCRIPT_SAMPLE, filename: 'sample.ts' },
+        'ESLint scan (sample.ts)',
+        (res) => ({ count: res.messages.length, note: `worker reported ${res.elapsedMs} ms internally` }),
+      );
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function runPrettier() {
     setBusy('prettier');
-    await runWorker<{ type: 'format'; source: string; parser: 'html' }, PrettierResponse>(
-      new URL('@/workers/prettier.worker.ts', import.meta.url),
-      { type: 'format', source: HTML_SAMPLE, parser: 'html' },
-      'Prettier format (sample.html)',
-      (res) => ({ bytes: res.formatted.length, note: `worker reported ${res.elapsedMs} ms internally` }),
-    );
-    setBusy(null);
+    try {
+      await runWorker<{ type: 'format'; source: string; parser: 'html' }, PrettierResponse>(
+        new URL('../workers/prettier.worker.ts', import.meta.url),
+        { type: 'format', source: HTML_SAMPLE, parser: 'html' },
+        'Prettier format (sample.html)',
+        (res) => ({ bytes: res.formatted.length, note: `worker reported ${res.elapsedMs} ms internally` }),
+      );
+    } finally {
+      setBusy(null);
+    }
   }
 
   function exportJson() {
