@@ -4,6 +4,7 @@ import type { EslintResponse } from '@/workers/eslint.worker';
 import type { PrettierResponse } from '@/workers/prettier.worker';
 import type { NormalizedEdit } from '@/lib/fixes/applyEdit';
 import { ruffFixToEdits } from '@/lib/fixes/convertRuffFix';
+import { eslintFixToEdits } from '@/lib/fixes/convertEslintFix';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -376,12 +377,14 @@ export async function scanAllFiles(
           filesSkipped++;
         } else {
           for (const m of res.messages) {
+            const edits = eslintFixToEdits(m, file.content);
             findings.push({
               file: file.path,
               line: m.line ?? null,
               severity: eslintSeverity(m.severity),
               ruleId: m.ruleId,
               message: m.message,
+              ...(edits.length > 0 ? { edits } : {}),
             });
           }
           filesScanned++;

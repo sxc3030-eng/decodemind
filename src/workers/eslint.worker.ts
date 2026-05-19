@@ -17,6 +17,10 @@ export interface EslintMessage {
   endLine?: number;
   endColumn?: number;
   fatal?: boolean;
+  fix?: {
+    range: [number, number];   // character offsets in the source
+    text: string;               // replacement
+  };
 }
 
 export type EslintResponse =
