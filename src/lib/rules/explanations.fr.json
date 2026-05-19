@@ -1,0 +1,152 @@
+{
+  "ws-auth-no-origin-check": {
+    "problem": "Votre serveur WebSocket accepte des connexions depuis n'importe quel site web. Un site malveillant peut se connecter en utilisant la session d'un utilisateur connecté à son insu.",
+    "impact": "Un attaquant peut détourner les sessions, lire des données privées ou effectuer des actions au nom de l'utilisateur.",
+    "fix": "Ajoutez une vérification de l'origine. Comparez request.headers.get('Origin') avec une liste blanche avant d'accepter la connexion."
+  },
+  "ws-auth-no-token": {
+    "problem": "Votre serveur WebSocket accepte toute connexion sans exiger de jeton d'authentification. Quiconque connaît l'adresse du serveur peut s'y connecter.",
+    "impact": "Des utilisateurs non autorisés peuvent lire les messages, injecter des données ou perturber le service.",
+    "fix": "Exigez un jeton dans l'URL de connexion ou dans le premier message, et validez-le avant de traiter les données."
+  },
+  "ws-auth-no-max-size": {
+    "problem": "Votre serveur WebSocket n'a pas de limite de taille de message. Un client peut envoyer un très grand message pour épuiser la mémoire du serveur.",
+    "impact": "Un seul client malveillant peut faire planter le serveur ou le rendre inaccessible pour tous.",
+    "fix": "Définissez max_size dans websockets.serve(), par exemple max_size=1_000_000 pour limiter les messages à 1 Mo."
+  },
+  "ws-auth-broadcast-no-auth": {
+    "problem": "Votre code envoie des messages à tous les clients connectés sans vérifier si chacun est autorisé à les recevoir.",
+    "impact": "Des messages sensibles peuvent être transmis à des utilisateurs non authentifiés ou non autorisés.",
+    "fix": "Maintenez un ensemble distinct de clients authentifiés et ne diffusez qu'à ceux-là."
+  },
+  "ws-auth-msg-not-validated": {
+    "problem": "Votre gestionnaire WebSocket traite les messages entrants sans vérifier leur taille ni leur format. Une entrée mal formée ou trop grande peut provoquer des erreurs.",
+    "impact": "Des attaquants peuvent envoyer des messages malformés pour déclencher des erreurs ou épuiser les ressources.",
+    "fix": "Vérifiez la longueur du message et validez son format (ex. schéma JSON) avant de le traiter."
+  },
+  "injection-shell-true": {
+    "problem": "Exécuter une commande avec shell=True signifie que le shell interprète l'intégralité de la chaîne de commande. Si une partie vient d'une entrée utilisateur, l'utilisateur peut injecter des commandes arbitraires.",
+    "impact": "Exécution de code à distance complète. Un attaquant peut lancer n'importe quelle commande sur le serveur.",
+    "fix": "Passez la commande sous forme de liste et supprimez shell=True. Exemple : subprocess.run(['ls', '-l', path])."
+  },
+  "injection-subprocess-shell-true": {
+    "problem": "subprocess.Popen avec shell=True présente le même risque que subprocess.run : une entrée utilisateur intégrée dans la commande peut être exploitée.",
+    "impact": "Exécution de code à distance complète sur le serveur.",
+    "fix": "Passez une liste d'arguments : subprocess.Popen(['cmd', 'arg1', arg2])."
+  },
+  "injection-os-system": {
+    "problem": "os.system() passe son argument directement au shell. Tout contenu contrôlé par l'utilisateur dans cet argument peut injecter des commandes arbitraires.",
+    "impact": "Un attaquant peut exécuter des commandes arbitraires sur le serveur.",
+    "fix": "Remplacez os.system() par subprocess.run() avec une liste d'arguments et sans shell=True."
+  },
+  "injection-eval": {
+    "problem": "eval() exécute la chaîne reçue en tant que code Python. Si cette chaîne contient du contenu fourni par l'utilisateur, celui-ci peut exécuter du code arbitraire.",
+    "impact": "Compromission complète du système — l'attaquant peut lire des fichiers, ouvrir des connexions réseau ou détruire des données.",
+    "fix": "Évitez complètement eval(). Utilisez un analyseur sécurisé ou limitez l'entrée à un ensemble connu de valeurs."
+  },
+  "injection-exec": {
+    "problem": "exec() est identique à eval() mais supporte aussi les blocs de code multi-instructions. Il exécute la chaîne donnée en tant que code Python.",
+    "impact": "Compromission complète du système — même risque qu'eval().",
+    "fix": "Évitez exec() entièrement. Si vous avez besoin de comportement dynamique, utilisez un DSL restreint ou un format de configuration."
+  },
+  "injection-path-traversal-open": {
+    "problem": "Ouvrir un fichier à un chemin incluant une variable peut permettre une traversée de chemin. Un attaquant peut passer '../../../etc/passwd' pour sortir du répertoire prévu.",
+    "impact": "Un attaquant peut lire ou écraser des fichiers arbitraires sur le système.",
+    "fix": "Utilisez pathlib.Path.resolve() et vérifiez que le chemin résolu commence bien par votre répertoire de base avant d'ouvrir le fichier."
+  },
+  "injection-sql-f-string": {
+    "problem": "Construire une requête SQL avec une f-string intègre des variables directement dans le texte. Si une variable contient de la syntaxe SQL, elle modifie la structure de la requête.",
+    "impact": "Un attaquant peut lire, modifier ou supprimer n'importe quelle donnée dans votre base, ou exécuter des commandes d'administration.",
+    "fix": "Utilisez des requêtes paramétrées : cursor.execute('SELECT ... WHERE id = %s', (user_id,))."
+  },
+  "injection-sql-concat": {
+    "problem": "Concaténer des chaînes pour construire une requête SQL est vulnérable à l'injection SQL pour la même raison que les f-strings : l'entrée utilisateur peut modifier la structure.",
+    "impact": "Compromission complète de la base de données — un attaquant peut exfiltrer, modifier ou détruire toutes les données.",
+    "fix": "Utilisez des requêtes paramétrées : cursor.execute('SELECT ... WHERE name = %s', (name,))."
+  },
+  "injection-js-eval": {
+    "problem": "eval() en JavaScript exécute son argument comme du code. Un contenu contrôlé par l'utilisateur passé à eval() donne à l'attaquant une exécution complète de scripts dans le contexte de la page.",
+    "impact": "XSS, vol de session, manipulation du DOM, exfiltration de cookies et jetons.",
+    "fix": "Ne passez jamais d'entrée utilisateur à eval(). Utilisez JSON.parse() pour les données ou repensez la logique qui nécessite eval()."
+  },
+  "injection-js-innerhtml": {
+    "problem": "Assigner une variable à innerHTML amène le navigateur à l'analyser comme du HTML et à exécuter les scripts intégrés. Si la variable contient une entrée utilisateur, c'est une faille XSS.",
+    "impact": "Un attaquant peut injecter des scripts qui volent les jetons de session, redirigent les utilisateurs ou défacent la page.",
+    "fix": "Utilisez textContent à la place d'innerHTML. Si vous devez insérer du HTML, assainissez l'entrée avec DOMPurify."
+  },
+  "crypto-md5": {
+    "problem": "MD5 est un algorithme de hachage cassé. Il est computationnellement faisable de trouver des collisions, et les attaques par préimage sont pratiques sur des entrées courtes.",
+    "impact": "Les hachages de mots de passe peuvent être cassés rapidement ; les checksums peuvent être falsifiés.",
+    "fix": "Utilisez hashlib.sha256() pour le hachage général. Pour les mots de passe, utilisez bcrypt, scrypt ou argon2."
+  },
+  "crypto-sha1": {
+    "problem": "SHA-1 est considéré comme faible. Des attaques par collision à préfixe choisi ont été démontrées et il est déprécié par le NIST.",
+    "impact": "Les signatures numériques et certificats utilisant SHA-1 peuvent être falsifiés.",
+    "fix": "Utilisez hashlib.sha256() ou hashlib.sha3_256() à la place."
+  },
+  "crypto-hardcoded-secret": {
+    "problem": "Une clé secrète, un jeton ou un mot de passe est codé en dur comme littéral de chaîne dans le code source. Quiconque accède au dépôt ou au binaire peut l'extraire.",
+    "impact": "Compromission totale du service ou du compte protégé par cette credential.",
+    "fix": "Déplacez les identifiants dans des variables d'environnement ou un gestionnaire de secrets (HashiCorp Vault, AWS Secrets Manager, fichiers .env exclus du contrôle de version)."
+  },
+  "crypto-weak-random": {
+    "problem": "random.random() utilise un Mersenne Twister qui n'est pas cryptographiquement sécurisé. Sa sortie peut être prédite à partir de quelques valeurs observées.",
+    "impact": "Les jetons, nonces et identifiants de session générés ainsi peuvent être devinés par un attaquant.",
+    "fix": "Utilisez le module secrets : secrets.token_hex(32) pour les jetons, secrets.randbelow(n) pour les entiers."
+  },
+  "crypto-pickle-load": {
+    "problem": "pickle.loads() peut exécuter du code Python arbitraire lors de la désérialisation. Il n'est pas sûr de désérialiser des données pickle provenant d'une source non fiable.",
+    "impact": "Exécution de code à distance — un attaquant peut créer un payload pickle pour exécuter n'importe quel code sur votre serveur.",
+    "fix": "Ne désérialisez jamais des données pickle provenant de sources non fiables. Utilisez JSON ou un format validé par schéma comme msgpack."
+  },
+  "crypto-yaml-load": {
+    "problem": "yaml.load() sans argument Loader peut instancier des objets Python arbitraires depuis le document YAML.",
+    "impact": "Exécution de code à distance si le YAML provient d'une entrée utilisateur ou d'un fichier non fiable.",
+    "fix": "Remplacez yaml.load(x) par yaml.safe_load(x), qui ne désérialise que les types Python de base."
+  },
+  "crypto-md5-js": {
+    "problem": "MD5 est un algorithme de hachage faible qui ne doit pas être utilisé à des fins de sécurité.",
+    "impact": "Les checksums peuvent être falsifiés ; toute intégrité de données ou authentification reposant sur MD5 est peu fiable.",
+    "fix": "Utilisez crypto.createHash('sha256') ou crypto.subtle.digest('SHA-256', ...) pour l'API Web Crypto."
+  },
+  "crypto-jwt-none-alg": {
+    "problem": "Autoriser l'algorithme 'none' dans la vérification JWT désactive complètement la vérification de signature. N'importe quel jeton sera accepté comme valide.",
+    "impact": "Un attaquant peut forger des jetons pour n'importe quel utilisateur, y compris les administrateurs, sans connaître aucun secret.",
+    "fix": "Supprimez 'none' du tableau algorithms. N'autorisez que l'algorithme spécifique avec lequel vos jetons sont signés, par ex. ['HS256']."
+  },
+  "xss-dangerously-set-html": {
+    "problem": "dangerouslySetInnerHTML demande à React d'injecter du HTML brut dans le DOM, contournant l'échappement automatique de React. Si la valeur contient une entrée utilisateur, des scripts peuvent être injectés.",
+    "impact": "XSS — un attaquant peut voler les cookies de session, rediriger les utilisateurs ou défacer la page.",
+    "fix": "Assainissez le HTML avec DOMPurify avant de le passer à dangerouslySetInnerHTML, ou restructurez le composant pour éviter l'injection de HTML brut."
+  },
+  "xss-document-write": {
+    "problem": "document.write() ajoute du contenu brut au document. Un contenu incluant une entrée utilisateur peut injecter des scripts.",
+    "impact": "XSS — même impact qu'une assignation innerHTML.",
+    "fix": "Utilisez des méthodes DOM comme createElement et appendChild, ou textContent pour le texte brut."
+  },
+  "xss-direct-innerhtml": {
+    "problem": "Assigner à innerHTML analyse la valeur comme du HTML et exécute les scripts intégrés. Toute valeur contrôlée par l'utilisateur est un risque XSS.",
+    "impact": "Injection de scripts, vol de session, défacement de page.",
+    "fix": "Utilisez textContent pour le texte brut. Assainissez avec DOMPurify si vous devez insérer du HTML."
+  },
+  "xss-href-javascript": {
+    "problem": "Définir href avec une URL javascript: amène le navigateur à exécuter du JavaScript au clic. Si l'URL provient d'une entrée utilisateur, c'est du XSS.",
+    "impact": "Exécution de code dans le contexte de la page au clic — vol de session ou actions malveillantes.",
+    "fix": "Validez toutes les valeurs href contre une liste blanche de protocoles (https:, mailto:) et rejetez les URL javascript:."
+  },
+  "xss-set-attribute-onevent": {
+    "problem": "Définir un attribut on* (onclick, onerror, etc.) via setAttribute injecte un gestionnaire d'événement. Si la valeur est contrôlée par l'utilisateur, c'est du XSS.",
+    "impact": "Exécution de script arbitraire déclenchée par une interaction utilisateur.",
+    "fix": "Utilisez addEventListener plutôt que setAttribute pour les gestionnaires d'événements. Ne définissez jamais d'attributs on* avec des valeurs contrôlées par l'utilisateur."
+  },
+  "llm-fake-pandas-method": {
+    "problem": "Cette méthode n'existe pas dans la bibliothèque pandas. Elle a probablement été suggérée par un assistant IA qui a halluciné un nom d'API plausible mais inexistant.",
+    "impact": "Le code lèvera une AttributeError à l'exécution.",
+    "fix": "Consultez la documentation officielle de pandas pour le nom et la signature corrects de la méthode."
+  },
+  "llm-fake-react-hook": {
+    "problem": "useFetch et useDebounce ne font pas partie de l'API principale de React. Ils sont fréquemment hallucités par les générateurs de code IA comme s'il s'agissait de hooks intégrés.",
+    "impact": "Le code échouera à l'exécution car ces hooks n'existent pas dans React.",
+    "fix": "Installez une bibliothèque qui les fournit (ex. react-use, usehooks-ts) ou implémentez-les vous-même. Consultez la documentation React pour la liste des hooks intégrés."
+  }
+}

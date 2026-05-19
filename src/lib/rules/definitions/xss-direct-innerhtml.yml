@@ -1,0 +1,10 @@
+id: xss-direct-innerhtml
+language: JavaScript
+category: security
+severity: error
+message: Direct innerHTML assignment — XSS risk if value contains user-controlled HTML
+# TODO: HTML files are not well-supported by ast-grep pattern matching.
+# This rule targets the JavaScript assignment form. For HTML template literals,
+# a dedicated HTML linter (e.g. htmlhint) is more appropriate.
+rule:
+  pattern: $EL.innerHTML = $X

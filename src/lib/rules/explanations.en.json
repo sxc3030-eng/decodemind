@@ -1,0 +1,152 @@
+{
+  "ws-auth-no-origin-check": {
+    "problem": "Your WebSocket server accepts connections from any website. A malicious site can connect using a logged-in user's session without their knowledge.",
+    "impact": "An attacker can hijack user sessions, read private data, or perform actions as the user.",
+    "fix": "Add an origin check. Compare request.headers.get('Origin') against an allowlist before accepting the connection."
+  },
+  "ws-auth-no-token": {
+    "problem": "Your WebSocket server accepts any connection without requiring an authentication token. Anyone who knows your server address can connect.",
+    "impact": "Unauthorized users can read messages, inject data, or disrupt your service.",
+    "fix": "Require a token in the connection URL or in the first message, validate it before processing any data."
+  },
+  "ws-auth-no-max-size": {
+    "problem": "Your WebSocket server has no message size limit. A client can send a very large message to exhaust your server's memory.",
+    "impact": "A single malicious client can crash your server or make it unresponsive for everyone.",
+    "fix": "Set max_size in websockets.serve(), for example max_size=1_000_000 limits messages to 1 MB."
+  },
+  "ws-auth-broadcast-no-auth": {
+    "problem": "Your code sends messages to every connected client without checking if each client is authorized to receive them.",
+    "impact": "Sensitive messages may be delivered to unauthenticated or unauthorized users.",
+    "fix": "Maintain a separate set of authenticated clients and only broadcast to those."
+  },
+  "ws-auth-msg-not-validated": {
+    "problem": "Your WebSocket handler processes incoming messages without checking their size or format. Malformed or oversized input can cause crashes or unexpected behavior.",
+    "impact": "Attackers can send crafted messages to trigger errors, bypass logic, or exhaust resources.",
+    "fix": "Check message length and parse/validate the format (e.g. JSON schema) before processing."
+  },
+  "injection-shell-true": {
+    "problem": "Running a command with shell=True means the shell interprets the entire command string. If any part comes from user input, the user can inject arbitrary shell commands.",
+    "impact": "Full remote code execution. An attacker can run any command on your server.",
+    "fix": "Pass the command as a list of arguments and remove shell=True. Example: subprocess.run(['ls', '-l', path])."
+  },
+  "injection-subprocess-shell-true": {
+    "problem": "subprocess.Popen with shell=True has the same risk as subprocess.run with shell=True: user input embedded in the command string can be exploited.",
+    "impact": "Full remote code execution on the server.",
+    "fix": "Pass a list of arguments instead: subprocess.Popen(['cmd', 'arg1', arg2])."
+  },
+  "injection-os-system": {
+    "problem": "os.system() passes its argument directly to the shell. Any user-controlled content in that argument can inject arbitrary commands.",
+    "impact": "An attacker can execute arbitrary commands on the server.",
+    "fix": "Replace os.system() with subprocess.run() using a list of arguments and no shell=True."
+  },
+  "injection-eval": {
+    "problem": "eval() executes the string it receives as Python code. If that string includes any user-provided content, the user can run arbitrary code.",
+    "impact": "Complete system compromise — the attacker can read files, open network connections, or destroy data.",
+    "fix": "Avoid eval() entirely. Use a safe parser or restrict input to a known set of values."
+  },
+  "injection-exec": {
+    "problem": "exec() is the same as eval() but also supports multi-statement code blocks. It executes the given string as Python code.",
+    "impact": "Complete system compromise — same risk as eval().",
+    "fix": "Avoid exec() entirely. If you need dynamic behavior, use a restricted DSL or configuration format instead."
+  },
+  "injection-path-traversal-open": {
+    "problem": "Opening a file at a path that includes a variable could allow path traversal. An attacker may pass '../../../etc/passwd' to escape your intended directory.",
+    "impact": "An attacker can read or overwrite arbitrary files on the system.",
+    "fix": "Use pathlib.Path.resolve() and verify the resolved path starts with your intended base directory before opening."
+  },
+  "injection-sql-f-string": {
+    "problem": "Building a SQL query with an f-string embeds variables directly into the query text. If a variable contains SQL syntax, it changes the query structure.",
+    "impact": "An attacker can read, modify, or delete any data in your database, or execute admin commands.",
+    "fix": "Use parameterized queries: cursor.execute('SELECT ... WHERE id = %s', (user_id,))."
+  },
+  "injection-sql-concat": {
+    "problem": "Concatenating strings to build a SQL query is vulnerable to SQL injection for the same reason as f-strings: user input can alter the query structure.",
+    "impact": "Full database compromise — an attacker can exfiltrate, modify, or destroy all data.",
+    "fix": "Use parameterized queries: cursor.execute('SELECT ... WHERE name = %s', (name,))."
+  },
+  "injection-js-eval": {
+    "problem": "JavaScript eval() executes its argument as code. User-controlled content passed to eval() gives the attacker full script execution in the page context.",
+    "impact": "XSS, session theft, DOM manipulation, exfiltration of cookies and tokens.",
+    "fix": "Never pass user input to eval(). Use JSON.parse() for data, or rethink the logic that requires eval()."
+  },
+  "injection-js-innerhtml": {
+    "problem": "Assigning a variable to innerHTML causes the browser to parse it as HTML and execute any embedded scripts. If the variable contains user input, it is an XSS vulnerability.",
+    "impact": "An attacker can inject scripts that steal session tokens, redirect users, or deface the page.",
+    "fix": "Use textContent instead of innerHTML. If you must insert HTML, sanitize the input with DOMPurify first."
+  },
+  "crypto-md5": {
+    "problem": "MD5 is a broken hash algorithm. It is computationally feasible to find collisions, and preimage attacks are practical for short inputs.",
+    "impact": "Password hashes can be cracked quickly; checksums can be forged.",
+    "fix": "Use hashlib.sha256() for general hashing. For passwords, use bcrypt, scrypt, or argon2."
+  },
+  "crypto-sha1": {
+    "problem": "SHA-1 is considered weak. Chosen-prefix collision attacks have been demonstrated, and it is deprecated by NIST.",
+    "impact": "Digital signatures and certificates using SHA-1 can be forged.",
+    "fix": "Use hashlib.sha256() or hashlib.sha3_256() instead."
+  },
+  "crypto-hardcoded-secret": {
+    "problem": "A secret key, token, or password is hardcoded as a string literal in the source code. Anyone with access to the repository or binary can extract it.",
+    "impact": "Full compromise of the service or account protected by that credential.",
+    "fix": "Move credentials to environment variables or a secrets manager such as HashiCorp Vault, AWS Secrets Manager, or .env files excluded from version control."
+  },
+  "crypto-weak-random": {
+    "problem": "random.random() uses a Mersenne Twister which is not cryptographically secure. Its output can be predicted from a few observed values.",
+    "impact": "Tokens, nonces, and session IDs generated this way can be guessed by an attacker.",
+    "fix": "Use the secrets module: secrets.token_hex(32) for tokens, secrets.randbelow(n) for integers."
+  },
+  "crypto-pickle-load": {
+    "problem": "pickle.loads() can execute arbitrary Python code during deserialization. It is not safe to unpickle data from an untrusted source.",
+    "impact": "Remote code execution — an attacker can craft a pickle payload to run any code on your server.",
+    "fix": "Never deserialize pickled data from untrusted sources. Use JSON or a schema-validated format like msgpack."
+  },
+  "crypto-yaml-load": {
+    "problem": "yaml.load() without a Loader argument or with the default Loader can instantiate arbitrary Python objects from the YAML document.",
+    "impact": "Remote code execution if the YAML is sourced from user input or an untrusted file.",
+    "fix": "Replace yaml.load(x) with yaml.safe_load(x), which only deserializes basic Python types."
+  },
+  "crypto-md5-js": {
+    "problem": "MD5 is a weak hash algorithm that should not be used for security purposes.",
+    "impact": "Checksums can be forged; any data integrity or authentication relying on MD5 is unreliable.",
+    "fix": "Use crypto.createHash('sha256') or crypto.subtle.digest('SHA-256', ...) for Web Crypto API."
+  },
+  "crypto-jwt-none-alg": {
+    "problem": "Allowing the 'none' algorithm in JWT verification disables signature checking entirely. Any token will be accepted as valid.",
+    "impact": "An attacker can forge tokens for any user, including admins, without knowing any secret.",
+    "fix": "Remove 'none' from the algorithms array. Only allow the specific algorithm your tokens are signed with, e.g. ['HS256']."
+  },
+  "xss-dangerously-set-html": {
+    "problem": "dangerouslySetInnerHTML tells React to inject raw HTML into the DOM, bypassing React's automatic escaping. If the value contains user input, scripts can be injected.",
+    "impact": "XSS — an attacker can steal session cookies, redirect users, or deface the page.",
+    "fix": "Sanitize the HTML with DOMPurify before passing it to dangerouslySetInnerHTML, or restructure the component to avoid raw HTML injection."
+  },
+  "xss-document-write": {
+    "problem": "document.write() appends raw content to the document. Content that includes user input can inject scripts.",
+    "impact": "XSS — same impact as innerHTML assignment.",
+    "fix": "Use DOM methods like createElement and appendChild, or textContent for plain text."
+  },
+  "xss-direct-innerhtml": {
+    "problem": "Assigning to innerHTML parses the value as HTML and executes embedded scripts. Any user-controlled value is an XSS risk.",
+    "impact": "Script injection, session theft, page defacement.",
+    "fix": "Use textContent for plain text. Sanitize with DOMPurify if you must insert HTML."
+  },
+  "xss-href-javascript": {
+    "problem": "Setting href to a javascript: URL causes the browser to execute JavaScript when the link is clicked. If the URL comes from user input, it is XSS.",
+    "impact": "Code execution in the page context on click — session theft or malicious actions.",
+    "fix": "Validate all href values against an allowlist of protocols (https:, mailto:) and reject javascript: URLs."
+  },
+  "xss-set-attribute-onevent": {
+    "problem": "Setting an on* attribute (onclick, onerror, etc.) via setAttribute injects an event handler. If the value is user-controlled, this is XSS.",
+    "impact": "Arbitrary script execution triggered by user interaction.",
+    "fix": "Use addEventListener instead of setAttribute for event handlers. Never set on* attributes with user-controlled values."
+  },
+  "llm-fake-pandas-method": {
+    "problem": "This method does not exist in the pandas library. It was likely suggested by an AI assistant that hallucinated a plausible-sounding but nonexistent API.",
+    "impact": "The code will raise AttributeError at runtime.",
+    "fix": "Check the official pandas documentation for the correct method name and signature."
+  },
+  "llm-fake-react-hook": {
+    "problem": "useFetch and useDebounce are not part of React's core API. They are frequently hallucinated by AI code generators as if they were built-in hooks.",
+    "impact": "The code will fail at runtime because these hooks do not exist in React.",
+    "fix": "Install a library that provides them (e.g. react-use, usehooks-ts) or implement them yourself. Check the React documentation for the list of built-in hooks."
+  }
+}

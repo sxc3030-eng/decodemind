@@ -1,0 +1,7 @@
+id: injection-sql-concat
+language: Python
+category: security
+severity: error
+message: cursor.execute() with string concatenation — SQL injection risk; use parameterized queries instead
+rule:
+  pattern: cursor.execute("SELECT " + $X)

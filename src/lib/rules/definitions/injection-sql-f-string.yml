@@ -1,0 +1,7 @@
+id: injection-sql-f-string
+language: Python
+category: security
+severity: error
+message: cursor.execute() with f-string — SQL injection risk; use parameterized queries instead
+rule:
+  pattern: cursor.execute(f"$$$")

@@ -1,0 +1,9 @@
+id: ws-auth-broadcast-no-auth
+language: Python
+category: security
+severity: warning
+message: WebSocket broadcast to all clients without per-client auth check
+rule:
+  pattern: |
+    for $WS in $CLIENTS:
+      await $WS.send($MSG)

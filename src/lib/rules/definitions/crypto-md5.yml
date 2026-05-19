@@ -1,0 +1,7 @@
+id: crypto-md5
+language: Python
+category: security
+severity: warning
+message: hashlib.md5 is a weak hash algorithm — use SHA-256 or stronger for security purposes
+rule:
+  pattern: hashlib.md5($$$)

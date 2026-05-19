@@ -1,0 +1,7 @@
+id: ws-auth-no-max-size
+language: Python
+category: security
+severity: warning
+message: WebSocket without max_size — possible memory exhaustion attack
+rule:
+  pattern: websockets.serve($HANDLER, $$$ARGS)
