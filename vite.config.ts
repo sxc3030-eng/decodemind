@@ -58,6 +58,20 @@ export default defineConfig({
     headers: crossOriginIsolationHeaders,
     open: true,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // @mlc-ai/web-llm, @ast-grep/wasm, @astral-sh/ruff-wasm-web are WASM-heavy and
+          // loaded dynamically at runtime — they are kept out of the bundle via optimizeDeps.exclude.
+          // Only JS-bundleable deps are split here.
+          'prettier': ['prettier/standalone', 'prettier/plugins/babel', 'prettier/plugins/estree', 'prettier/plugins/typescript', 'prettier/plugins/html', 'prettier/plugins/postcss'],
+          'eslint': ['eslint-linter-browserify'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 6000, // intentionally large for linter + WASM payloads
+  },
   optimizeDeps: {
     exclude: ['@mlc-ai/web-llm', '@ast-grep/wasm', '@astral-sh/ruff-wasm-web'],
   },
