@@ -15,7 +15,8 @@ export interface LoadResult {
 }
 
 interface WebGPUAdapter {
-  requestAdapterInfo(): Promise<{ vendor?: string; architecture?: string }>;
+  readonly info?: { vendor: string; architecture: string };
+  requestAdapterInfo?(): Promise<{ vendor?: string; architecture?: string }>;
 }
 
 interface NavigatorWithGPU extends Navigator {
@@ -27,7 +28,8 @@ export async function detectAdapter(): Promise<{ vendor: string; architecture: s
   try {
     const adapter = await (navigator as NavigatorWithGPU).gpu.requestAdapter();
     if (!adapter) return null;
-    const info = await adapter.requestAdapterInfo();
+    const info = adapter.info ?? (await adapter.requestAdapterInfo?.());
+    if (!info) return null;
     return { vendor: info.vendor || 'unknown', architecture: info.architecture || 'unknown' };
   } catch {
     return null;
