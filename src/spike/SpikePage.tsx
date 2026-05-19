@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { MODELS, type Tier } from '@/lib/llm/models';
 import { detectAdapter, loadModel } from '@/lib/llm/loader';
 import { translateFinding } from '@/lib/llm/translator';
@@ -10,6 +10,8 @@ import { ResultsTable, type Measurement } from './ResultsTable';
 import { PYTHON_SAMPLE, TYPESCRIPT_SAMPLE, HTML_SAMPLE, SAMPLE_FINDING } from './fixtures';
 import { collectFiles, scanAllFiles, type ScannerKind, type FolderScanReport } from './folderScan';
 import { FolderScanResults } from './FolderScanResults';
+import { usePersistentDirectoryHandle } from '@/lib/hooks/usePersistentDirectoryHandle';
+import { filesFromInput } from './fileInputFallback';
 
 type WorkerResponse = RuffResponse | EslintResponse | PrettierResponse;
 
@@ -22,6 +24,8 @@ export function SpikePage() {
   const [engine, setEngine] = useState<any>(null);
   const [scanProgress, setScanProgress] = useState<string>('');
   const [folderReport, setFolderReport] = useState<FolderScanReport | null>(null);
+  const { lastHandle, saveHandle, verifyPermission } = usePersistentDirectoryHandle();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const push = (m: Measurement) => setMeasurements((prev) => [...prev, m]);
 
@@ -236,6 +240,7 @@ export function SpikePage() {
       // Merge collectFiles warnings with scan warnings
       setFolderReport({ ...report, warnings: [...warnings, ...report.warnings] });
       setScanProgress('');
+      await saveHandle(rootHandle);
     } catch (err) {
       // User cancelled the picker (AbortError) — clear quietly
       if ((err as { name?: string }).name !== 'AbortError') {
@@ -243,6 +248,80 @@ export function SpikePage() {
       } else {
         setScanProgress('');
       }
+    }
+    setBusy(null);
+  }
+
+  async function rescanLastHandle() {
+    if (!lastHandle) return;
+    setBusy('folder-scan');
+    setScanProgress('Verifying permission…');
+    setFolderReport(null);
+    try {
+      const ok = await verifyPermission(lastHandle);
+      if (!ok) {
+        setScanProgress('Permission denied for saved folder.');
+        setBusy(null);
+        return;
+      }
+      setScanProgress('Collecting files…');
+      const { files, warnings } = await collectFiles(lastHandle);
+      if (files.length === 0) {
+        setScanProgress('No supported files found in the selected folder.');
+        setBusy(null);
+        return;
+      }
+      setScanProgress(`Starting scan of ${files.length} files…`);
+      const report = await scanAllFiles(
+        files,
+        (done: Record<ScannerKind, number>, total: Record<ScannerKind, number>) => {
+          const parts: string[] = [];
+          if (total.ruff > 0) parts.push(`Ruff ${done.ruff}/${total.ruff}`);
+          if (total.eslint > 0) parts.push(`ESLint ${done.eslint}/${total.eslint}`);
+          const prettierDone = done['prettier-html'] + done['prettier-css'];
+          const prettierTotal = total['prettier-html'] + total['prettier-css'];
+          if (prettierTotal > 0) parts.push(`Prettier ${prettierDone}/${prettierTotal}`);
+          setScanProgress(`Scanning: ${parts.join(', ')}`);
+        },
+      );
+      setFolderReport({ ...report, warnings: [...warnings, ...report.warnings] });
+      setScanProgress('');
+    } catch (err) {
+      setScanProgress(`Error: ${(err as Error).message}`);
+    }
+    setBusy(null);
+  }
+
+  async function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+    setBusy('folder-scan');
+    setScanProgress('Reading files…');
+    setFolderReport(null);
+    try {
+      const { files, warnings } = await filesFromInput(fileList);
+      if (files.length === 0) {
+        setScanProgress('No supported files found in the selected folder.');
+        setBusy(null);
+        return;
+      }
+      setScanProgress(`Starting scan of ${files.length} files…`);
+      const report = await scanAllFiles(
+        files,
+        (done: Record<ScannerKind, number>, total: Record<ScannerKind, number>) => {
+          const parts: string[] = [];
+          if (total.ruff > 0) parts.push(`Ruff ${done.ruff}/${total.ruff}`);
+          if (total.eslint > 0) parts.push(`ESLint ${done.eslint}/${total.eslint}`);
+          const prettierDone = done['prettier-html'] + done['prettier-css'];
+          const prettierTotal = total['prettier-html'] + total['prettier-css'];
+          if (prettierTotal > 0) parts.push(`Prettier ${prettierDone}/${prettierTotal}`);
+          setScanProgress(`Scanning: ${parts.join(', ')}`);
+        },
+      );
+      setFolderReport({ ...report, warnings: [...warnings, ...report.warnings] });
+      setScanProgress('');
+    } catch (err) {
+      setScanProgress(`Error: ${(err as Error).message}`);
     }
     setBusy(null);
   }
@@ -299,12 +378,35 @@ export function SpikePage() {
       <section className="bg-brand-card rounded-lg p-4 space-y-3">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold">Scan a real folder</h2>
-          <Button onClick={pickAndScan} disabled={!!busy}>Pick a folder…</Button>
+          {'showDirectoryPicker' in window
+            ? <Button onClick={pickAndScan} disabled={!!busy}>Pick a folder…</Button>
+            : null}
         </div>
+        {lastHandle && (
+          <div>
+            <Button onClick={rescanLastHandle} disabled={!!busy}>
+              Pick last folder again
+            </Button>
+          </div>
+        )}
         {'showDirectoryPicker' in window ? null : (
-          <p className="text-sm text-brand-warn">
-            Your browser doesn&apos;t support folder picking. Use Chrome/Edge for this feature.
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button onClick={() => fileInputRef.current?.click()} disabled={!!busy}>
+              Choose folder (read-only)
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              // @ts-expect-error — webkitdirectory is not in React's HTMLInputElement types
+              webkitdirectory=""
+              multiple
+              style={{ display: 'none' }}
+              onChange={handleFileInput}
+            />
+            <p className="text-sm text-brand-warn">
+              Your browser doesn&apos;t support folder picking — using read-only fallback.
+            </p>
+          </div>
         )}
         {scanProgress && <p className="text-sm text-brand-accent">⏳ {scanProgress}</p>}
         {folderReport && <FolderScanResults report={folderReport} />}

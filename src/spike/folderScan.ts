@@ -1,3 +1,4 @@
+import ignore from 'ignore';
 import type { RuffResponse } from '@/workers/ruff.worker';
 import type { EslintResponse } from '@/workers/eslint.worker';
 import type { PrettierResponse } from '@/workers/prettier.worker';
@@ -72,11 +73,34 @@ export interface FolderScanReport {
   warnings: string[];
 }
 
+// ─── .decodemind-ignore support ───────────────────────────────────────────────
+
+/**
+ * Try to read `.decodemind-ignore` from the root directory.
+ * Returns its text content, or null if the file doesn't exist.
+ */
+export async function readIgnoreFile(
+  root: FileSystemDirectoryHandle,
+): Promise<string | null> {
+  try {
+    const fileHandle = await root.getFileHandle('.decodemind-ignore');
+    const file = await fileHandle.getFile();
+    return await file.text();
+  } catch (err) {
+    // NotFoundError is expected when the file doesn't exist — swallow it.
+    // Re-throw anything else (e.g. permission errors).
+    if (err instanceof DOMException && err.name === 'NotFoundError') {
+      return null;
+    }
+    throw err;
+  }
+}
+
 // ─── collectFiles ─────────────────────────────────────────────────────────────
 
 /**
  * Walk a FileSystemDirectoryHandle recursively, returning matched ScanFile[].
- * Respects IGNORED_DIRS, MAX_FILES, and MAX_FILE_BYTES.
+ * Respects IGNORED_DIRS, .decodemind-ignore patterns, MAX_FILES, and MAX_FILE_BYTES.
  */
 export async function collectFiles(
   root: FileSystemDirectoryHandle,
@@ -85,15 +109,31 @@ export async function collectFiles(
   const warnings: string[] = [];
   let totalSeen = 0;
 
+  // ── Load .decodemind-ignore if present ──────────────────────────────────────
+  const ignoreText = await readIgnoreFile(root);
+  let ig: ReturnType<typeof ignore> | null = null;
+  if (ignoreText !== null) {
+    ig = ignore().add(ignoreText);
+    const patternCount = ignoreText
+      .split('\n')
+      .filter((line) => line.trim() !== '' && !line.trim().startsWith('#'))
+      .length;
+    warnings.push(`Loaded ${patternCount} patterns from .decodemind-ignore`);
+  }
+
   async function walk(dir: FileSystemDirectoryHandle, prefix: string): Promise<void> {
     // FileSystemDirectoryHandle is async-iterable in browsers but TypeScript's
     // DOM lib only gained this signature in newer versions. Cast to avoid the
     // TS2504 error without requiring DOM.AsyncIterable in tsconfig.lib.
     const iterable = dir as unknown as AsyncIterable<[string, FileSystemHandle]>;
     for await (const [name, handle] of iterable) {
+      const relativePath = prefix ? `${prefix}/${name}` : name;
+
       if (handle.kind === 'directory') {
         if (IGNORED_DIRS.has(name)) continue;
-        await walk(handle as FileSystemDirectoryHandle, prefix ? `${prefix}/${name}` : name);
+        // Check .decodemind-ignore for directories (append slash for dir matching)
+        if (ig && ig.ignores(relativePath)) continue;
+        await walk(handle as FileSystemDirectoryHandle, relativePath);
       } else {
         // It's a file — check extension
         const dotIdx = name.lastIndexOf('.');
@@ -102,15 +142,17 @@ export async function collectFiles(
         const scanner = EXT_TO_SCANNER[ext];
         if (!scanner) continue;
 
+        // Check .decodemind-ignore for files
+        if (ig && ig.ignores(relativePath)) continue;
+
         totalSeen++;
         if (files.length >= MAX_FILES) continue; // keep counting but don't add
 
-        const filePath = prefix ? `${prefix}/${name}` : name;
         const fileHandle = handle as FileSystemFileHandle;
         const file = await fileHandle.getFile();
 
         if (file.size > MAX_FILE_BYTES) {
-          warnings.push(`Skipped ${filePath} (${(file.size / 1_048_576).toFixed(1)} MB > 1 MB limit)`);
+          warnings.push(`Skipped ${relativePath} (${(file.size / 1_048_576).toFixed(1)} MB > 1 MB limit)`);
           continue;
         }
 
@@ -120,11 +162,11 @@ export async function collectFiles(
         const head = content.slice(0, 200);
         const isGenerated = AUTO_GENERATED_HEADERS.some((m) => head.includes(m));
         if (isGenerated) {
-          warnings.push(`Skipped ${filePath} (auto-generated header detected)`);
+          warnings.push(`Skipped ${relativePath} (auto-generated header detected)`);
           continue;
         }
 
-        files.push({ path: filePath, content, scanner });
+        files.push({ path: relativePath, content, scanner });
       }
     }
   }
@@ -170,9 +212,66 @@ function eslintSeverity(n: number): AggregatedFinding['severity'] {
   return 'info';
 }
 
+// ─── Worker pool ─────────────────────────────────────────────────────────────
+
+const POOL_SIZE = 2;
+
 /**
- * Run all files through the appropriate workers. One long-lived worker per
- * scanner kind — not terminated between files.
+ * Run a pool of N workers over a list of jobs.
+ * Each worker is created by `makeWorker` and processes one job at a time.
+ * Jobs are dispatched as workers become free (available-queue style).
+ */
+async function runPool<TReq, TRes>(
+  makeWorker: () => Worker,
+  poolSize: number,
+  jobs: Array<{ request: TReq; onResult: (res: TRes) => void }>,
+): Promise<void> {
+  if (jobs.length === 0) return;
+
+  const actualSize = Math.min(poolSize, jobs.length);
+  const workers = Array.from({ length: actualSize }, makeWorker);
+
+  // Track which worker is free: a Promise that resolves when the worker
+  // finishes its current task (initially all resolve immediately).
+  const workerSlots: Promise<void>[] = workers.map(() => Promise.resolve());
+
+  // A queue index we hand out round-trips; but we actually want "pick the
+  // soonest free worker", so we use a Promise.race over the slots.
+  let jobIndex = 0;
+
+  // Kick off initial batch: one job per worker
+  const inFlight: Array<Promise<void>> = [];
+
+  function dispatchNext(workerIdx: number): Promise<void> {
+    if (jobIndex >= jobs.length) return Promise.resolve();
+    const job = jobs[jobIndex++];
+    const p: Promise<void> = ask<TReq, TRes>(workers[workerIdx], job.request).then(
+      (res) => {
+        job.onResult(res);
+        // Chain: when this slot frees, pick the next job for this worker
+        workerSlots[workerIdx] = dispatchNext(workerIdx);
+      },
+    );
+    return p;
+  }
+
+  // Seed each worker with its first job
+  for (let i = 0; i < actualSize; i++) {
+    workerSlots[i] = dispatchNext(i);
+    inFlight.push(workerSlots[i]);
+  }
+
+  // Wait until all workers have drained
+  // Since each slot chains into the next job, we wait for all slots to settle
+  await Promise.all(workerSlots);
+
+  // Terminate all workers
+  for (const w of workers) w.terminate();
+}
+
+/**
+ * Run all files through the appropriate workers.
+ * Uses a pool of POOL_SIZE workers per scanner kind for parallel processing.
  * onProgress fires after each file completes.
  */
 export async function scanAllFiles(
@@ -196,71 +295,80 @@ export async function scanAllFiles(
     ruff: 0, eslint: 0, 'prettier-html': 0, 'prettier-css': 0,
   };
 
-  // Lazy-spawn workers only if we have files that need them
-  const ruffWorker = total.ruff > 0 ? makeRuffWorker() : null;
-  const eslintWorker = total.eslint > 0 ? makeEslintWorker() : null;
-  const prettierWorker = (total['prettier-html'] + total['prettier-css']) > 0
-    ? makePrettierWorker()
-    : null;
-
   let filesScanned = 0;
   let filesSkipped = 0;
 
-  try {
-    for (const file of files) {
-      try {
-        if (file.scanner === 'ruff' && ruffWorker) {
-          const res = await ask<{ type: 'scan'; source: string }, RuffResponse>(
-            ruffWorker,
-            { type: 'scan', source: file.content },
-          );
-          if (res.type === 'error') {
-            warnings.push(`Ruff error on ${file.path}: ${res.message}`);
-            filesSkipped++;
-          } else {
-            for (const d of res.diagnostics) {
-              findings.push({
-                file: file.path,
-                line: d.start_location.row,
-                severity: d.code?.startsWith('E') || d.code?.startsWith('F')
-                  ? 'error'
-                  : 'warning',
-                ruleId: d.code,
-                message: d.message,
-              });
-            }
-            filesScanned++;
+  // ── Ruff pool ────────────────────────────────────────────────────────────────
+  const ruffFiles = files.filter((f) => f.scanner === 'ruff');
+  if (ruffFiles.length > 0) {
+    type RuffReq = { type: 'scan'; source: string };
+    const jobs = ruffFiles.map((file) => ({
+      request: { type: 'scan' as const, source: file.content },
+      onResult: (res: RuffResponse) => {
+        if (res.type === 'error') {
+          warnings.push(`Ruff error on ${file.path}: ${res.message}`);
+          filesSkipped++;
+        } else {
+          for (const d of res.diagnostics) {
+            findings.push({
+              file: file.path,
+              line: d.start_location.row,
+              severity: d.code?.startsWith('E') || d.code?.startsWith('F')
+                ? 'error'
+                : 'warning',
+              ruleId: d.code,
+              message: d.message,
+            });
           }
-          done.ruff++;
+          filesScanned++;
+        }
+        done.ruff++;
+        onProgress({ ...done }, { ...total });
+      },
+    }));
+    await runPool<RuffReq, RuffResponse>(makeRuffWorker, POOL_SIZE, jobs);
+  }
 
-        } else if (file.scanner === 'eslint' && eslintWorker) {
-          const res = await ask<{ type: 'lint'; source: string; filename: string }, EslintResponse>(
-            eslintWorker,
-            { type: 'lint', source: file.content, filename: file.path },
-          );
-          if (res.type === 'error') {
-            warnings.push(`ESLint error on ${file.path}: ${res.message}`);
-            filesSkipped++;
-          } else {
-            for (const m of res.messages) {
-              findings.push({
-                file: file.path,
-                line: m.line ?? null,
-                severity: eslintSeverity(m.severity),
-                ruleId: m.ruleId,
-                message: m.message,
-              });
-            }
-            filesScanned++;
+  // ── ESLint pool ──────────────────────────────────────────────────────────────
+  const eslintFiles = files.filter((f) => f.scanner === 'eslint');
+  if (eslintFiles.length > 0) {
+    type EslintReq = { type: 'lint'; source: string; filename: string };
+    const jobs = eslintFiles.map((file) => ({
+      request: { type: 'lint' as const, source: file.content, filename: file.path },
+      onResult: (res: EslintResponse) => {
+        if (res.type === 'error') {
+          warnings.push(`ESLint error on ${file.path}: ${res.message}`);
+          filesSkipped++;
+        } else {
+          for (const m of res.messages) {
+            findings.push({
+              file: file.path,
+              line: m.line ?? null,
+              severity: eslintSeverity(m.severity),
+              ruleId: m.ruleId,
+              message: m.message,
+            });
           }
-          done.eslint++;
+          filesScanned++;
+        }
+        done.eslint++;
+        onProgress({ ...done }, { ...total });
+      },
+    }));
+    await runPool<EslintReq, EslintResponse>(makeEslintWorker, POOL_SIZE, jobs);
+  }
 
-        } else if ((file.scanner === 'prettier-html' || file.scanner === 'prettier-css') && prettierWorker) {
-          const parser = file.scanner === 'prettier-html' ? 'html' : 'css';
-          const res = await ask<{ type: 'format'; source: string; parser: 'html' | 'css' }, PrettierResponse>(
-            prettierWorker,
-            { type: 'format', source: file.content, parser },
-          );
+  // ── Prettier pool (html + css share one pool) ─────────────────────────────────
+  const prettierFiles = files.filter(
+    (f) => f.scanner === 'prettier-html' || f.scanner === 'prettier-css',
+  );
+  if (prettierFiles.length > 0) {
+    type PrettierReq = { type: 'format'; source: string; parser: 'html' | 'css' };
+    const jobs = prettierFiles.map((file) => {
+      const parser = file.scanner === 'prettier-html' ? 'html' as const : 'css' as const;
+      return {
+        request: { type: 'format' as const, source: file.content, parser },
+        onResult: (res: PrettierResponse) => {
           if (res.type === 'error') {
             warnings.push(`Prettier error on ${file.path}: ${res.message}`);
             filesSkipped++;
@@ -278,20 +386,11 @@ export async function scanAllFiles(
           }
           if (file.scanner === 'prettier-html') done['prettier-html']++;
           else done['prettier-css']++;
-        }
-      } catch (err) {
-        warnings.push(`Scan failed for ${file.path}: ${(err as Error).message}`);
-        filesSkipped++;
-        // increment done counter to keep progress accurate
-        done[file.scanner]++;
-      }
-
-      onProgress({ ...done }, { ...total });
-    }
-  } finally {
-    ruffWorker?.terminate();
-    eslintWorker?.terminate();
-    prettierWorker?.terminate();
+          onProgress({ ...done }, { ...total });
+        },
+      };
+    });
+    await runPool<PrettierReq, PrettierResponse>(makePrettierWorker, POOL_SIZE, jobs);
   }
 
   return {
