@@ -1,77 +1,103 @@
-# Phase 0 Spike — Findings (template, fill in from measurement run)
+# Phase 0 Spike — Findings
 
-**Date:** 2026-05-19
-**Hardware:** _fill in: CPU model + cores, RAM, GPU vendor/model_
-**OS / Browser:** _fill in: Windows 11 + Chrome XXX.X.XXXX.XXX (or Edge)_
-**Network for first model download:** _fill in: connection speed_
+**Spike start date:** 2026-05-18
+**First real-folder scan:** 2026-05-19
+**Hardware:** _TODO: fill in CPU model + cores, RAM, GPU vendor/model_
+**OS / Browser:** _TODO: fill in (Windows 11, Chrome/Edge version)_
+**Status:** Folder scan and 3 of 4 scanners (Ruff, ESLint, Prettier) verified on real code. WebLLM + Qwen tier loads NOT yet measured.
 
-## Raw export
+## What was measured
 
-Drop the exported JSON next to this file (e.g. `decodemind-spike-2026-05-19.json`) and reference it here.
+### ✅ Real folder scan on `D:\mamy\` (first user-code scan)
 
-## Scanner performance (sample files)
+The folder picker (added to the spike via commit `e07e738`) was used to scan the `mamy` Android+ML project. The picker walked the directory, skipped ignored dirs, and ran Ruff/ESLint/Prettier on matching files.
 
-| Scanner | Cold ms (1st click) | Warm ms (2nd click) | Findings count | Notes |
-|---|---|---|---|---|
-| Ruff (sample.py) | _fill_ | _fill_ | _fill_ | _e.g. shell=True + hallucinated method + unused var detected_ |
-| ESLint (sample.ts) | _fill_ | _fill_ | _fill_ | _e.g. == undefined, eval, debugger detected_ |
-| Prettier (sample.html) | _fill_ | _fill_ | n/a (formatter) | _bytes before / after_ |
+**Aggregate:**
+- Total findings: ~60
+- Actionable / high-signal: 4 (~7%)
+- Noise from vendored upstream `whisper-cpp/`: ~50 (~83%)
+- Project-internal style noise (`E501` in `ops/i5/proxy.py`): ~7 (~10%)
 
-## WebGPU adapter
+**Actionable findings (the kind a real audit should catch):**
 
-| Field | Value |
-|---|---|
-| Vendor | _fill_ |
-| Architecture | _fill_ |
-| Available? | _yes / no (degraded mode)_ |
+| Location | Rule | Type | What it means |
+|---|---|---|---|
+| `app/src/main/cpp/whisper-cpp/scripts/bench.py:153` | `S602` | 🔒 Security | `subprocess(..., shell=True)` — shell injection risk |
+| `app/src/main/cpp/whisper-cpp/scripts/bench.py:99` | `S607` | 🔒 Security | partial executable path → `$PATH` hijack risk |
+| `app/src/main/cpp/whisper-cpp/scripts/bench.py:103` | `F841` | 🐛 Bug | Local `except ... as e` never used (silent catch) |
+| `ops/i5/proxy.py:40-46` | `UP045` | ✨ Quality | Use `X \| None` instead of `Optional[X]` (PEP 604) |
 
-## Model load times
+**Noise findings (style-only on third-party or auto-generated code):**
+- ~40× `E501` line-too-long on `whisper-cpp/ggml/ggml_vk_generate_shaders.py` — vendored upstream Vulkan shader generator
+- ~8× `E501` on `whisper-cpp/ggml/src/ggml-cuda/template-instances/generate_cu_files.py` — auto-generated CUDA template wrappers
+- 7× `E501` on `ops/i5/proxy.py` — user code, may be legit (long URLs/strings)
 
-Repeat per tier (Quick required, Better/Best optional based on disk + GPU):
+### ⏳ Not yet measured
 
-| Tier | Approx download (MB) | First-load duration | Cached-load duration | Notes |
-|---|---|---|---|---|
-| Quick (1.5B, ~840 MB) | _fill_ | _fill_ | _refresh page, click Load again — should be <5s if cached_ | |
-| Better (3B, ~1.9 GB) | _fill_ | _fill_ | _fill_ | _skip if disk full_ |
-| Best (7B, ~4.1 GB) | _fill_ | _fill_ | _fill_ | _skip if iGPU/limited VRAM_ |
+- Cold-vs-warm scanner timings (Ruff / ESLint / Prettier on the existing fixtures + on user code)
+- WebGPU adapter (`Detect adapter` button) — vendor + architecture
+- Qwen 1.5B / 3B / 7B load times and translation latency
+- Cache behavior on second model load
 
-## Translation performance
+→ TODO during next dev-server session.
 
-| Tier | 1 finding (ms) | Batch of 8 sequential (ms) | Avg ms/finding | Output quality (subjective) |
-|---|---|---|---|---|
-| Quick (1.5B) | _fill_ | _fill_ | _fill_ | _e.g. "Good plain English, on-topic"_ |
-| Better (3B) | _fill_ | _fill_ | _fill_ | |
-| Best (7B) | _fill_ | _fill_ | _fill_ | |
+## Lessons learned (driving V1 design)
 
-## Failures and surprises
+### 1. Vendored third-party code dominates noise
 
-_List anything that crashed, anything that surprised you, anything the spec assumed wrong._
+`whisper-cpp/` is upstream code the user doesn't own. ~83% of findings came from it. The hardcoded ignore list (`node_modules`, `.git`, `dist`, etc.) didn't cover vendored C++/Python ML libs.
 
-- _e.g. "Worker XYZ took 3× longer than estimated"_
-- _e.g. "Browser ran out of memory on Best tier"_
-- _e.g. "Hard to know when 'still loading' became 'frozen'"_
+**Action taken (commit after this doc):** added generic vendored patterns to `IGNORED_DIRS` (`vendor`, `third_party`, `external`, `deps`, `ext`, `libs`) + specific ML libs (`whisper-cpp`, `llama-cpp`, `ggml`, `onnxruntime`, `tensorflow-lite`).
+
+**V1 design implication:** ignore patterns must be **project-configurable**, not just hardcoded. Spec section 5 should add a `.decodemind-ignore` file (gitignore-syntax) read at scan time. Built-in defaults expanded.
+
+### 2. Auto-generated code is detectable by heuristic
+
+Both noisy upstream files (`generate_cu_files.py`, `ggml_vk_generate_shaders.py`) had patterns like "Generated by", "DO NOT EDIT", or `# Auto-generated` near the top.
+
+**Action taken:** added `AUTO_GENERATED_HEADERS` heuristic to `collectFiles`. Files whose first 200 chars match any marker are skipped with a warning.
+
+**V1 design implication:** mention this heuristic in spec section 3 (Detection layer). It will reduce noise on many real projects without configuration. Caveat: tune the marker list with user feedback (false-positives from coincidental matches).
+
+### 3. Severity routing matters more than expected
+
+The 4 actionable findings (1 sec-critical, 2 sec-warning, 1 bug, 1 quality) were buried in 56 style warnings. A user scanning their code shouldn't have to scroll past 40 line-too-long warnings to find a real `shell=True` injection.
+
+**V1 design implication:** spec section 5 already says "Sectioned report (🔒 Security / 🐛 Bugs / 🧠 Logic / ✨ Quality)" — confirm this MUST be in V1. The current spike table is flat; that's why noise was so loud. The V1 UI must default-collapse the Quality section and surface Security at the top.
+
+### 4. The 4-actionable-finding rate is a good signal
+
+7% actionable on a folder loaded with vendored code is plausible. On a cleaner first-party folder (`ops/i5/` alone, or a GeniA package), the ratio should be much higher. **V1 success metric to add:** track actionable-finding ratio per scan; expose it in the UI as a "noise score" so the user knows whether to tune their ignore list.
+
+### 5. The tool found what we hoped it would
+
+The `shell=True` security finding is exactly the kind of LLM/non-expert gotcha DecodeMind is meant to surface. A non-expert who pulled this code from anywhere wouldn't know that `shell=True` is dangerous. The translator (when wired) will explain it in plain language. **Mission validated.**
 
 ## V1 budget revisions
 
-Based on measured numbers, the V1 spec should be updated:
+_Some revisions still TBD — need the timed measurement run._
 
-- **Default-tier end-to-end scan budget** (10k LOC, Quick tier): was ≤ 45 s, measured ≈ _fill_ s → revise to _fill_ s
-- **First-load size estimate** (Quick): was 840 MB, actual ≈ _fill_ MB
-- **First-load duration on 50 Mbps**: was < 5 min, actual ≈ _fill_ min
-- **Tier strategy validity**: still 3 tiers? Promote/demote any? _fill_
+- **Folder scan throughput**: TBD (didn't time the mamy scan precisely; observed ~"a few seconds" subjectively)
+- **First-load size estimate (Quick tier)**: was 840 MB, actual: TBD
+- **End-to-end scan budget (10k LOC, Quick tier)**: was ≤ 45 s, will revise when LLM is measured
+- **Tier strategy**: still valid as designed; measurement run will tell us if the iGPU fallback to 1.5B is actually needed
 
-## Tech surprises to capture in V1 plan
+## Tech surprises captured for V1 plan
 
-- ast-grep tree-sitter grammar pipeline: _confirmed needed; document the V1 task_
-- `@ast-grep/wasm` API mismatch from initial spec: _real exports are initializeTreeSitter / registerDynamicLanguage / parse_
-- Ruff WASM: _Workspace constructor needs PositionEncoding.Utf16; Diagnostic uses start_location not location_
-- ESLint browser: _eslint-linter-browserify works; eslint should be added as devDep for proper types_
-- Prettier 3.x: _async API in 3.0+, plugins as default imports_
-- WebGPU: _check `adapter.info` vs deprecated `requestAdapterInfo()` per actual browser version_
-- Production build: _worker URLs must be relative literals (no `@/` alias) — already fixed in spike_
+- ✅ ast-grep tree-sitter grammar pipeline: confirmed needed — grammar `.wasm` files must be served from `public/`
+- ✅ `@ast-grep/wasm` API differs from initial spec: real exports are `initializeTreeSitter` / `registerDynamicLanguage` / `parse`
+- ✅ Ruff WASM: `Workspace` constructor needs `PositionEncoding.Utf16` as 2nd arg; `Diagnostic` uses `start_location` (not `location`)
+- ✅ ESLint browser: `eslint-linter-browserify` works; `eslint` should be added as devDep for proper types (currently `as never` cast)
+- ✅ Prettier 3.x: async API since 3.0; plugins as default imports
+- ✅ WebGPU: `requestAdapterInfo()` deprecated in current spec → use `adapter.info` getter in V1
+- ✅ Production build: worker URLs must be relative literals (no `@/` alias) — fixed in spike
+- ✅ **New**: ignore patterns must be project-configurable (this scan exposed it)
+- ✅ **New**: auto-generated-code heuristic is cheap and high-value
+- ✅ **New**: severity routing in UI is non-negotiable (flat table = noise wins)
 
 ## Next steps
 
-- [ ] Apply budget revisions above to the spec at `docs/superpowers/specs/2026-05-18-decodemind-design.md`
-- [ ] Write the V1 sprint plan using these numbers as constraints
-- [ ] Commit findings + spec update with message `docs(spike): Phase 0 findings + revised V1 perf budget from measured data`
+- [ ] Re-scan `D:\mamy\` after the ignore-list update to confirm noise reduction
+- [ ] Run the measurement spike (the 7 buttons + tier loads) to capture timing data — fill in the TBDs above
+- [ ] Apply revisions to spec V1 (next commit)
+- [ ] Write V1 sprint plan
