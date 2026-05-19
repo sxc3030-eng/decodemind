@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+.output/
+.vite/
+
+# Environment
+.env
+.env.local
+.env.*.local
+.dev.vars
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+logs/
+
+# Editor
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Cache
+.cache/
+.parcel-cache/
+.turbo/
+.next/
+
+# Models / WASM artifacts (these are downloaded at runtime, never committed)
+public/models/
+public/wasm/*.wasm
+*.mlc.tar
+
+# DecodeMind runtime artifacts (when testing locally)
+.decodemind-backup/
+.decodemind-cache/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
