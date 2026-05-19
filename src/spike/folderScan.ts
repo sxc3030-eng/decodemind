@@ -209,6 +209,38 @@ function ask<TReq, TRes>(worker: Worker, req: TReq): Promise<TRes> {
   });
 }
 
+/**
+ * Map a Ruff rule code to a DecodeMind severity.
+ *
+ * Ruff doesn't carry a per-finding severity — only a rule code. We derive
+ * severity from the code prefix so the report's "Critical / Important / Minor"
+ * labels match user intuition. See https://docs.astral.sh/ruff/rules/ for codes.
+ */
+export function ruffSeverity(code: string | null): AggregatedFinding['severity'] {
+  if (!code) return 'warning';
+  // Security (bandit-ported S*) — real exposure
+  if (code.startsWith('S')) return 'error';
+  // Pyflakes F* — undefined names, unused imports, real bugs
+  if (code.startsWith('F')) return 'error';
+  // Bugbear B*, async ASYNC*, blind-except BLE* — warning-level bugs
+  if (code.startsWith('B') || code.startsWith('ASYNC') || code.startsWith('BLE')) return 'warning';
+  // Real warnings W*
+  if (code.startsWith('W')) return 'warning';
+  // Style E*, modernisation UP*, complexity C9*, naming N*, annotations ANN*, isort I*, quote Q* — info
+  if (
+    code.startsWith('E') ||
+    code.startsWith('UP') ||
+    code.startsWith('C9') ||
+    code.startsWith('N') ||
+    code.startsWith('ANN') ||
+    code.startsWith('Q') ||
+    code.startsWith('I')
+  ) {
+    return 'info';
+  }
+  return 'warning';
+}
+
 function eslintSeverity(n: number): AggregatedFinding['severity'] {
   if (n === 2) return 'error';
   if (n === 1) return 'warning';
@@ -317,9 +349,7 @@ export async function scanAllFiles(
             findings.push({
               file: file.path,
               line: d.start_location.row,
-              severity: d.code?.startsWith('E') || d.code?.startsWith('F')
-                ? 'error'
-                : 'warning',
+              severity: ruffSeverity(d.code),
               ruleId: d.code,
               message: d.message,
               ...(edits.length > 0 ? { edits } : {}),
