@@ -1,0 +1,7 @@
+id: kotlin-webview-file-access
+language: Kotlin
+category: security
+severity: error
+message: WebView allowFileAccess = true lets remote pages read local files — disable unless strictly required
+rule:
+  pattern: $WV.settings.allowFileAccess = true

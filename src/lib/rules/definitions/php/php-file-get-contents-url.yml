@@ -1,0 +1,10 @@
+id: php-file-get-contents-url
+language: PHP
+category: security
+severity: warning
+message: file_get_contents() with a variable URL — SSRF risk, validate scheme and host against an allowlist
+rule:
+  pattern: file_get_contents($URL)
+  constraints:
+    URL:
+      regex: '^\$'

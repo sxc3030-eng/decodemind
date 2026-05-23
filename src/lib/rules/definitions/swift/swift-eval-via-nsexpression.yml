@@ -1,0 +1,7 @@
+id: swift-eval-via-nsexpression
+language: Swift
+category: security
+severity: error
+message: NSExpression with a dynamic format string — evaluates code at runtime and can be abused for injection
+rule:
+  pattern: NSExpression(format: $S)

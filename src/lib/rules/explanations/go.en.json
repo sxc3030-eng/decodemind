@@ -1,0 +1,67 @@
+{
+  "go-sql-query-concat": {
+    "problem": "Building a SQL query by concatenating strings means any value coming from outside the program is glued directly into the query text. The database can no longer tell code from data.",
+    "impact": "An attacker can inject SQL to read, modify, or destroy data, or to authenticate as another user.",
+    "fix": "Use parameterized queries: db.Query(\"SELECT * FROM users WHERE name = ?\", name) (or $1, $2... with database/sql + pq). Never concatenate user input into SQL."
+  },
+  "go-sql-exec-concat": {
+    "problem": "db.Exec runs SQL that mutates the database (INSERT, UPDATE, DELETE). Concatenating user input into that SQL has the same risk as concatenating it into a SELECT.",
+    "impact": "An attacker can write or delete rows, escalate privileges, or destroy tables.",
+    "fix": "Pass values as bound parameters: db.Exec(\"UPDATE users SET name = ? WHERE id = ?\", name, id)."
+  },
+  "go-exec-command-user-input": {
+    "problem": "exec.Command takes the binary to run as its first argument. If that argument is a variable rather than a hardcoded literal, an attacker may be able to control which program executes.",
+    "impact": "Arbitrary command execution on the server with the process's privileges.",
+    "fix": "Hardcode the binary name (exec.Command(\"/usr/bin/git\", args...)) and validate every argument. Never let user input choose the executable."
+  },
+  "go-http-handlefunc-no-auth": {
+    "problem": "An admin route is registered with http.HandleFunc but the handler itself is responsible for enforcing authentication. It's easy to forget — and easy to miss in review.",
+    "impact": "Unauthenticated users could reach admin functionality and read or modify privileged data.",
+    "fix": "Wrap admin handlers in an authentication middleware (e.g. http.HandleFunc(\"/admin\", requireAdmin(handler))) so the check is enforced uniformly."
+  },
+  "go-tls-insecureskipverify": {
+    "problem": "Setting InsecureSkipVerify: true tells Go to skip TLS certificate validation entirely. Any server certificate is accepted, including forged ones.",
+    "impact": "A man-in-the-middle attacker can intercept and modify all traffic to that endpoint, including credentials and tokens.",
+    "fix": "Remove InsecureSkipVerify. If you need to trust a custom CA, load it into a tls.Config.RootCAs pool instead."
+  },
+  "go-weak-crypto-md5": {
+    "problem": "MD5 has known practical collision attacks. It is no longer safe for any security-sensitive use such as integrity checks, signatures, or password hashing.",
+    "impact": "An attacker can forge data with the same MD5 hash as a legitimate value, breaking authentication or integrity guarantees.",
+    "fix": "Use crypto/sha256 (sha256.Sum256) for general hashing, and bcrypt or argon2 for passwords. MD5 is acceptable only for non-security checksums."
+  },
+  "go-weak-crypto-sha1": {
+    "problem": "SHA-1 is broken for collision resistance. Two different inputs can be crafted to produce the same hash.",
+    "impact": "Signatures, certificates, or deduplication relying on SHA-1 can be forged or confused.",
+    "fix": "Use crypto/sha256 or stronger. Reserve SHA-1 only for legacy compatibility checks where collisions are not a concern."
+  },
+  "go-weak-random": {
+    "problem": "math/rand is a fast pseudo-random generator seeded from a predictable value. It is not designed to resist an attacker who observes outputs.",
+    "impact": "Tokens, session IDs, or secret material generated this way can be predicted, letting attackers hijack sessions or guess secrets.",
+    "fix": "For anything security-sensitive use crypto/rand (e.g. rand.Read(buf)). Keep math/rand for simulations and games only."
+  },
+  "go-hardcoded-password": {
+    "problem": "A password, secret, or API key is written directly in the source code. Anyone with access to the repository (or to a binary that contains the literal) can read it.",
+    "impact": "Credential compromise that often outlasts employee turnover, and shows up in every clone, fork, and backup of the repo.",
+    "fix": "Read secrets from environment variables, a config file outside the repo, or a secrets manager (Vault, AWS Secrets Manager, etc.)."
+  },
+  "go-http-redirect-user-input": {
+    "problem": "http.Redirect is sending the user to a URL taken from a variable. If that URL originates from the request (query string, form value), an attacker can redirect users anywhere.",
+    "impact": "Open-redirect vulnerability — used in phishing campaigns and to bypass other security controls like OAuth callback validation.",
+    "fix": "Validate the destination against an allowlist of paths or hostnames before calling http.Redirect."
+  },
+  "go-defer-unlock-without-lock": {
+    "problem": "A defer mu.Unlock() appears without an obvious matching mu.Lock() in the same scope. This is a heuristic — it may be a false positive — but it often signals a missing lock or a copy-paste bug.",
+    "impact": "Calling Unlock on a mutex that wasn't locked panics at runtime; missing a Lock leaves shared state unprotected.",
+    "fix": "Pair every defer Unlock with a clear Lock call earlier in the same function. Consider extracting locked sections into small helpers so the pairing is obvious."
+  },
+  "go-fmt-println-prod": {
+    "problem": "fmt.Println writes to stdout without log level, timestamp, or structured fields. It's fine for quick experiments but not for production code.",
+    "impact": "Diagnostic output cannot be filtered, redirected, or aggregated; production logs become noisy and hard to search.",
+    "fix": "Use the standard log package or a structured logger (slog, zap, zerolog) with explicit levels and fields."
+  },
+  "go-todo-comment": {
+    "problem": "A TODO or FIXME comment marks an incomplete task that someone planned to come back to. In a long-lived codebase these accumulate and rarely get done.",
+    "impact": "Latent bugs, partial features, and out-of-date assumptions stay in the code without anyone tracking them.",
+    "fix": "Move the TODO to an issue tracker with an owner and a deadline, or resolve it before merging."
+  }
+}

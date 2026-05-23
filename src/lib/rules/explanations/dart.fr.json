@@ -1,0 +1,77 @@
+{
+  "dart-http-cleartext-url": {
+    "problem": "Votre code utilise une URL http:// au lieu de https://. Le trafic HTTP en clair n'est pas chiffré et peut être lu ou modifié par n'importe qui sur le réseau.",
+    "impact": "Un attaquant sur le même Wi-Fi (café, aéroport) peut intercepter tokens, mots de passe et réponses d'API. Android 9+ et iOS ATS bloquent aussi le HTTP en clair par défaut, donc l'appel échouera tout simplement en production.",
+    "fix": "Passez l'URL en https:// et vérifiez que le serveur a un certificat valide. Si vous devez parler à un endpoint HTTP legacy, restreignez-le à un seul domaine via networkSecurityConfig (Android) et les exceptions NSAppTransportSecurity (iOS)."
+  },
+  "dart-hardcoded-api-key": {
+    "problem": "Une clé d'API, un token ou un mot de passe est écrit directement dans le code Dart. N'importe qui peut le récupérer en quelques minutes en décompilant votre APK ou IPA.",
+    "impact": "Le secret est de fait public. Un attaquant peut appeler des APIs payantes à vos frais, usurper l'identité de votre application ou accéder à vos services backend.",
+    "fix": "Chargez les secrets au runtime depuis flutter_secure_storage, une remote config ou des variables d'environnement passées via --dart-define. Ne commitez jamais de vraies clés dans le dépôt."
+  },
+  "dart-shared-prefs-secret": {
+    "problem": "Vous stockez un mot de passe, un token ou un secret dans SharedPreferences. Sur Android c'est un simple fichier XML dans le sandbox de l'app, sur iOS un plist — les deux sont lisibles sur un appareil rooté/jailbreaké ou via une sauvegarde.",
+    "impact": "Si l'appareil est compromis, les identifiants fuient. Ils sont aussi synchronisés via les sauvegardes cloud dans de nombreuses configurations.",
+    "fix": "Utilisez le package flutter_secure_storage, qui stocke les valeurs dans l'Android Keystore et l'iOS Keychain avec un chiffrement adossé au matériel."
+  },
+  "dart-http-badcert-allow": {
+    "problem": "Faire retourner true à badCertificateCallback (ou assigner n'importe quel callback qui ignore le certificat) désactive complètement la validation TLS.",
+    "impact": "N'importe qui faisant tourner un proxy sur le réseau — y compris un hotspot Wi-Fi malveillant — peut déchiffrer et modifier le trafic HTTPS. C'est l'attaque man-in-the-middle classique.",
+    "fix": "Supprimez l'override. Si vous avez vraiment besoin de faire confiance à un certificat auto-signé (env de dev), épinglez l'empreinte du certificat et n'acceptez que celui-là."
+  },
+  "dart-print-sensitive": {
+    "problem": "print() écrit dans les logs système de l'appareil (logcat sur Android, Console.app sur iOS). En release ces logs peuvent être capturés par d'autres apps avec les bonnes permissions ou par n'importe qui ayant un accès USB.",
+    "impact": "Les tokens, IDs utilisateurs ou PII imprimés pour debug se retrouvent exposés en production. Ils ralentissent aussi le démarrage et sont visibles par les crash reporters.",
+    "fix": "Utilisez un logger structuré comme le package logger, conditionnez les sorties debug derrière kDebugMode, et retirez les print() en release via une règle de lint."
+  },
+  "dart-runtime-process-run": {
+    "problem": "Process.run est appelé avec une variable comme nom de commande. Si une partie de cette chaîne vient d'une entrée utilisateur, d'une donnée réseau ou d'un fichier non maîtrisé, l'utilisateur peut choisir quel binaire est exécuté.",
+    "impact": "Exécution de commande sur l'appareil. Sur les cibles Flutter desktop c'est de la RCE pure ; sur mobile ça peut quand même pivoter via des utilitaires shell.",
+    "fix": "Codez en dur le chemin du binaire, validez la commande contre une allowlist, et passez les arguments dans une liste séparée (Process.run n'invoque jamais de shell dans ce cas)."
+  },
+  "dart-eval-via-mirror": {
+    "problem": "dart:mirrors permet d'invoquer des méthodes ou de lire des champs par leur nom au runtime. Si le nom vient d'une entrée non fiable, c'est fonctionnellement équivalent à eval.",
+    "impact": "Un attaquant peut appeler n'importe quelle méthode accessible dans votre app, y compris celles qui touchent au stockage, au réseau ou aux platform channels.",
+    "fix": "Évitez dart:mirrors en code de production — il n'est de toute façon pas supporté en Flutter. Si vous avez besoin de dispatch dynamique, utilisez un switch écrit à la main sur un ensemble connu de noms."
+  },
+  "dart-flutter-secure-storage-missing": {
+    "problem": "Un token d'authentification (la chose la plus sensible que votre app détient) est sauvegardé dans SharedPreferences. Ce fichier est en clair sur le disque.",
+    "impact": "Si l'utilisateur installe une app malveillante avec permission de lecture des sauvegardes, ou si l'appareil est rooté/jailbreaké, le token est récupéré. Les refresh tokens sont particulièrement critiques car ils n'expirent pas vite.",
+    "fix": "Passez à flutter_secure_storage pour tout token, refresh token, JWT ou session ID. Il enveloppe Keystore sur Android et Keychain sur iOS."
+  },
+  "dart-weak-random": {
+    "problem": "Random() de dart:math est seedé depuis une source à faible entropie et est prédictible — avec quelques sorties on peut deviner les suivantes. C'est ok pour de la logique de jeu mais pas pour de la sécurité.",
+    "impact": "Si vous utilisez Random() pour générer des IDs de session, des tokens de reset de mot de passe, des OTP ou des nonces, un attaquant qui voit quelques valeurs peut prédire le reste.",
+    "fix": "Utilisez Random.secure() de dart:math. Il tire du CSPRNG de l'OS (/dev/urandom sous Linux, SecRandomCopyBytes sous iOS, etc.)."
+  },
+  "dart-null-assertion": {
+    "problem": "L'opérateur de null-assertion (!) dit au compilateur 'fais-moi confiance, ce n'est pas null'. Si la valeur est null au runtime, l'app crashe avec un NullThrownError.",
+    "impact": "Des crashes durs en production, surtout autour de données async, du parsing JSON ou des retours de platform channels. Ils apparaissent comme des stack traces opaques dans votre crash reporter.",
+    "fix": "Utilisez les opérateurs null-aware (?.), le fallback ??, ou un check if (x != null) explicite. Réservez ! aux cas où vous venez de vérifier la nullité juste au-dessus."
+  },
+  "dart-empty-catch": {
+    "problem": "Un bloc catch sans corps avale complètement l'erreur. Vous n'avez aucune idée que quelque chose s'est mal passé, et votre crash reporter non plus.",
+    "impact": "Les bugs deviennent invisibles. Les échecs réseau, erreurs de parsing et exceptions de plateforme disparaissent toutes, laissant l'UI dans un état incohérent.",
+    "fix": "Au minimum loggez l'erreur et la stack trace. Si vous voulez vraiment ignorer un type d'exception spécifique, n'attrapez que ce type et ajoutez un commentaire expliquant pourquoi."
+  },
+  "dart-late-without-init": {
+    "problem": "Une variable late déclarée sans initialiseur dépend du programmeur pour l'assigner avant toute lecture. Si un chemin de code la lit en premier, vous obtenez un LateInitializationError au runtime — le compilateur ne peut pas vous aider.",
+    "impact": "Des crashes qui n'apparaissent que dans certains flux utilisateur, souvent après un rebuild d'écran ou une race condition. Difficiles à reproduire et à tester.",
+    "fix": "Initialisez la valeur inline si possible, marquez-la nullable (String?) et vérifiez la nullité aux sites d'utilisation, ou utilisez late final avec une expression d'initialisation."
+  },
+  "dart-string-interpolation-injection": {
+    "problem": "Une chaîne qui ressemble à du SQL contient une $variable interpolée dans la requête. Si cette variable vient d'une entrée utilisateur, c'est une injection SQL classique.",
+    "impact": "Selon la base (sqflite, drift, API brute), un attaquant peut lire ou modifier des données auxquelles il ne devrait pas avoir accès.",
+    "fix": "Utilisez des requêtes paramétrées : 'SELECT * FROM users WHERE id = ?' avec arguments [id]. Le driver échappe les valeurs pour vous."
+  },
+  "dart-todo-comment": {
+    "problem": "Un commentaire TODO ou FIXME traîne dans le code. Ça veut généralement dire que quelqu'un a reporté une décision ou un correctif.",
+    "impact": "Les TODOs qui vivent dans le code pendant des mois deviennent invisibles — personne ne sait à qui ils incombent ni s'ils sont toujours d'actualité.",
+    "fix": "Déplacez les TODOs actionnables vers votre tracker d'issues avec un ID de ticket, et supprimez les obsolètes. Ne gardez que les commentaires qui expliquent pourquoi le code est comme il est."
+  },
+  "dart-throw-error-no-stack": {
+    "problem": "Lancer une string littérale (throw 'quelque chose a foiré') est autorisé en Dart mais vous perdez l'information de type et une stack trace propre.",
+    "impact": "Les appelants ne peuvent pas attraper un type spécifique, les reporters d'erreurs regroupent bizarrement les strings, et le message est la seule chose que vous avez pour debug.",
+    "fix": "Lancez une sous-classe d'Exception avec un nom parlant (par ex. throw FormatException('expected JSON object')) ou définissez votre propre type d'erreur."
+  }
+}

@@ -1,0 +1,8 @@
+id: kotlin-empty-catch
+language: Kotlin
+category: bug
+severity: warning
+message: Empty catch block swallows exceptions — log at minimum, or handle explicitly
+rule:
+  pattern: |
+    catch ($E: Exception) {}

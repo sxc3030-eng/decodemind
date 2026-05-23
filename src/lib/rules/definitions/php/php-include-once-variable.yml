@@ -1,0 +1,12 @@
+id: php-include-once-variable
+language: PHP
+category: security
+severity: error
+message: include_once/require_once with a variable path — LFI/RFI risk, restrict to an allowlist
+rule:
+  any:
+    - pattern: include_once $X;
+    - pattern: require_once $X;
+  constraints:
+    X:
+      regex: '^\$'

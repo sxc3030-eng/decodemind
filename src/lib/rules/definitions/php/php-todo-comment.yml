@@ -1,0 +1,9 @@
+id: php-todo-comment
+language: PHP
+category: quality
+severity: info
+message: TODO/FIXME comment found — track in an issue tracker or resolve before merge
+rule:
+  pattern: $ANY
+# Note: ast-grep does not match comments via standard pattern syntax.
+# Placeholder rule; real detection runs as a regex pass on raw source text.

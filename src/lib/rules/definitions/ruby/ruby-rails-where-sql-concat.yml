@@ -1,0 +1,7 @@
+id: ruby-rails-where-sql-concat
+language: Ruby
+category: security
+severity: error
+message: ActiveRecord .where with concatenated SQL string — SQL injection; use placeholders or hash conditions
+rule:
+  pattern: $M.where("name = '" + $V + "'")

@@ -1,0 +1,7 @@
+id: csharp-console-writeline-prod
+language: C#
+category: quality
+severity: info
+message: Console.WriteLine in application code — use ILogger so logs are structured, level-controlled, and routed correctly
+rule:
+  pattern: Console.WriteLine($X)

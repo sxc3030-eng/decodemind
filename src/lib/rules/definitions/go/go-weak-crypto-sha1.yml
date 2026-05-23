@@ -1,0 +1,9 @@
+id: go-weak-crypto-sha1
+language: Go
+category: security
+severity: warning
+message: SHA-1 is cryptographically broken for collision resistance — use SHA-256 or stronger
+rule:
+  any:
+    - pattern: sha1.New()
+    - pattern: sha1.Sum($X)

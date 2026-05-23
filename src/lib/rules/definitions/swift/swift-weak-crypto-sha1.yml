@@ -1,0 +1,7 @@
+id: swift-weak-crypto-sha1
+language: Swift
+category: security
+severity: error
+message: SHA-1 is cryptographically broken — use SHA-256 or SHA-512 from CryptoKit
+rule:
+  pattern: Insecure.SHA1.hash($X)

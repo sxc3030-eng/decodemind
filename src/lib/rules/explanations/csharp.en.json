@@ -1,0 +1,82 @@
+{
+  "csharp-sqli-string-concat": {
+    "problem": "You are building a SQL command by concatenating a variable into the query string. If the variable comes from user input, the user can change the meaning of the SQL.",
+    "impact": "An attacker can read, modify, or destroy any data in your database, and in many setups escalate to running commands on the server.",
+    "fix": "Use a parameterized query: new SqlCommand(\"SELECT * FROM Users WHERE Id = @id\", conn) and add cmd.Parameters.AddWithValue(\"@id\", id)."
+  },
+  "csharp-sqli-interpolation": {
+    "problem": "An interpolated string ($\"...{value}...\") inside a SqlCommand inlines the variable directly into the SQL text — it is the same risk as plain concatenation.",
+    "impact": "Full SQL injection: data theft, modification, or deletion, depending on the account's privileges.",
+    "fix": "Replace the interpolation with a placeholder and pass the value through Parameters.Add or Parameters.AddWithValue."
+  },
+  "csharp-process-start-shell": {
+    "problem": "Process.Start receives a variable command line. If that variable contains user input, the user can append arguments or pipe extra commands.",
+    "impact": "Remote command execution under the privileges of your application's process account.",
+    "fix": "Build a ProcessStartInfo, set FileName to a fixed executable, and add arguments via ArgumentList. Never pass a single concatenated command string."
+  },
+  "csharp-deserialize-binaryformatter": {
+    "problem": "BinaryFormatter.Deserialize trusts the input stream to specify which .NET types to instantiate. Crafted payloads chain known gadgets to execute code.",
+    "impact": "Remote code execution. Microsoft has marked BinaryFormatter obsolete and unsafe for any input you do not fully control.",
+    "fix": "Switch to System.Text.Json or a contract-based serializer like protobuf-net or MessagePack. If you must keep binary format, use a typed serializer with a strict type allowlist."
+  },
+  "csharp-deserialize-soap": {
+    "problem": "SoapFormatter.Deserialize has the same unsafe design as BinaryFormatter — it instantiates arbitrary .NET types from the payload.",
+    "impact": "Remote code execution on the server.",
+    "fix": "Replace SoapFormatter with System.Text.Json or XmlSerializer bound to a specific known type."
+  },
+  "csharp-weak-crypto-md5": {
+    "problem": "MD5 is a broken hash function: practical collisions are trivial to generate on consumer hardware.",
+    "impact": "Signatures, fingerprints, or integrity checks based on MD5 can be forged. Passwords hashed with MD5 are essentially plaintext.",
+    "fix": "Use SHA256.Create() for hashes. For passwords use a slow KDF such as Rfc2898DeriveBytes (PBKDF2) or Argon2."
+  },
+  "csharp-weak-crypto-sha1": {
+    "problem": "SHA1 has demonstrated collision attacks and is being removed from TLS, code signing, and Git's roadmap.",
+    "impact": "Any signature or integrity scheme based on SHA1 can eventually be forged by a motivated attacker.",
+    "fix": "Use SHA256 or SHA512 for general hashing, and a KDF (PBKDF2, Argon2, scrypt) for passwords."
+  },
+  "csharp-weak-cipher-des": {
+    "problem": "DES uses a 56-bit key. Specialised hardware and even cloud GPUs can brute-force a DES key in hours.",
+    "impact": "Encrypted data using DES should be considered readable by any attacker who captures the ciphertext.",
+    "fix": "Use Aes.Create() with a 256-bit key and an authenticated mode (AES-GCM), or AES-CBC combined with HMAC-SHA256."
+  },
+  "csharp-hardcoded-password": {
+    "problem": "A password, token, or connection string literal is committed in source code. Anyone with repo access — including past contributors and CI logs — can read it.",
+    "impact": "Direct credential leak. Rotating the secret means changing every place it appears and chasing it through git history.",
+    "fix": "Read secrets from environment variables, the .NET user-secrets store in development, or a managed vault (Azure Key Vault, AWS Secrets Manager) in production."
+  },
+  "csharp-trust-all-cert": {
+    "problem": "Assigning ServicePointManager.ServerCertificateValidationCallback to a function that returns true (or to any callback that does not actually verify the chain) tells .NET to accept every server certificate.",
+    "impact": "Any attacker who can intercept the network — public Wi-Fi, hostile ISP, malicious proxy — can read and modify your HTTPS traffic.",
+    "fix": "Remove the override. If you really need a self-signed cert for a single server, pin its thumbprint and reject every other certificate in the callback."
+  },
+  "csharp-xpath-injection": {
+    "problem": "SelectNodes receives a string variable as the XPath expression. If that string includes user input, the user can change which nodes are selected.",
+    "impact": "Authentication bypass on XML-based logins, disclosure of nodes that should be private, or denial of service via expensive expressions.",
+    "fix": "Use XPathExpression.Compile with parameter variables, or validate the user input strictly (allowlist) before interpolating it."
+  },
+  "csharp-html-raw-no-encode": {
+    "problem": "@Html.Raw outputs its argument into the page without HTML-encoding. Razor's default encoding is the main defence against XSS.",
+    "impact": "If the value is influenced by user input, the attacker can inject script tags, event handlers, or styled overlays and run JavaScript in the victim's session.",
+    "fix": "Render the value with @value (default encoding) or use a sanitiser like HtmlSanitizer if the content really must contain HTML."
+  },
+  "csharp-empty-catch": {
+    "problem": "The catch block is empty. The exception is caught and immediately discarded — nothing is logged, nothing is rethrown.",
+    "impact": "Failures become invisible. The bug that triggered the exception keeps happening, but no one sees it until the symptoms show up far away.",
+    "fix": "At minimum log via ILogger with the exception object. If the caller cannot recover, rethrow with throw; (not throw ex;) so the stack trace is preserved."
+  },
+  "csharp-async-void": {
+    "problem": "Methods declared async void cannot be awaited and exceptions they throw escape to the synchronization context, where they usually crash the process.",
+    "impact": "Lost exceptions, unobservable failures, and surprise crashes — especially in ASP.NET and console apps.",
+    "fix": "Return Task instead of void: public async Task DoWorkAsync(...). The only legitimate use of async void is for event handlers tied to framework events."
+  },
+  "csharp-console-writeline-prod": {
+    "problem": "Console.WriteLine is used to emit log-style information from application code. It bypasses structured logging, log levels, and your hosting environment's log sink.",
+    "impact": "Logs are not searchable, not filtered by severity, and may not appear at all in containerised or service-host deployments.",
+    "fix": "Inject ILogger<T> from Microsoft.Extensions.Logging and call _logger.LogInformation(...) / LogWarning(...) / LogError(...) instead."
+  },
+  "csharp-todo-comment": {
+    "problem": "A TODO or FIXME comment is left in the code. It marks work that someone planned to do later — and 'later' rarely comes back on its own.",
+    "impact": "Hidden technical debt: assumptions, missing edge cases, and known bugs that never make it to the issue tracker.",
+    "fix": "Either finish the work now, or open a ticket and link its identifier in the comment so it appears in your backlog."
+  }
+}

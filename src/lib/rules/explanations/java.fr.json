@@ -1,0 +1,102 @@
+{
+  "java-sqli-statement-concat": {
+    "problem": "Construire une requête SQL en concaténant des chaînes avec une variable injecte cette variable directement dans le texte envoyé à la base de données.",
+    "impact": "Un attaquant qui contrôle une partie de cette variable peut lire, modifier ou supprimer n'importe quelle donnée — injection SQL totale, souvent suivie d'une compromission complète de la base.",
+    "fix": "Utilisez un PreparedStatement avec des marqueurs ? et passez les paramètres via setString / setInt / setLong. Ne concaténez jamais une entrée utilisateur dans une requête."
+  },
+  "java-sqli-prepared-concat": {
+    "problem": "Utiliser prepareStatement perd tout son intérêt si la chaîne SQL est construite par concaténation : le mécanisme de marqueur est court-circuité puisque la variable est déjà incrustée dans le texte SQL.",
+    "impact": "Identique à un Statement brut : injection SQL avec accès lecture/écriture à la base.",
+    "fix": "Mettez ? dans la chaîne SQL pour chaque variable et liez les valeurs avec setString/setInt. Exemple : prepareStatement(\"SELECT * FROM users WHERE id = ?\") puis ps.setInt(1, id)."
+  },
+  "java-deserialization-readobject": {
+    "problem": "ObjectInputStream.readObject() reconstruit n'importe quel objet Java depuis un flux binaire. Si la source est non fiable, un attaquant peut forger des payloads qui exécutent du code pendant la désérialisation via des chaînes de gadgets.",
+    "impact": "Exécution de code à distance sur la JVM concernée — point d'entrée typique de nombreuses CVE Java critiques.",
+    "fix": "Évitez la sérialisation Java pour des données non fiables — préférez du JSON avec un schéma strict. Si vous y êtes obligé, installez un filtre via ObjectInputFilter (Java 9+) ou la propriété jdk.serialFilter."
+  },
+  "java-xxe-documentbuilder": {
+    "problem": "DocumentBuilderFactory.newInstance() renvoie un parseur qui, par défaut, résout les DTD externes et les entités. Un document XML malveillant peut référencer des fichiers locaux, des URL internes ou provoquer un déni de service.",
+    "impact": "XML External Entity (XXE) : divulgation de fichiers, server-side request forgery, déni de service.",
+    "fix": "Désactivez les fonctionnalités dangereuses juste après newInstance() : setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true), setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true), setXIncludeAware(false), setExpandEntityReferences(false)."
+  },
+  "java-runtime-exec-user-input": {
+    "problem": "Runtime.getRuntime().exec appelé avec une commande variable lance ce que contient cette variable. Si une partie est contrôlée par l'utilisateur, c'est lui qui décide du processus exécuté.",
+    "impact": "Exécution arbitraire de commandes sur le serveur — RCE complète.",
+    "fix": "Ne construisez jamais la commande à partir d'entrées utilisateur. Si la commande elle-même est fixe, utilisez la forme tableau exec(new String[]{\"cmd\", arg1, arg2}) pour que les arguments ne soient pas interprétés par un shell. Préférez ProcessBuilder avec un exécutable codé en dur et des arguments validés."
+  },
+  "java-weak-crypto-md5": {
+    "problem": "MD5 a des collisions pratiques connues et n'est plus considéré comme sûr pour aucun usage de sécurité (signatures, hachage de mots de passe, intégrité face à un adversaire).",
+    "impact": "Un attaquant peut forger des messages ou fichiers partageant le même MD5 qu'un original légitime, contournant les vérifications d'intégrité ou d'authentification.",
+    "fix": "Utilisez MessageDigest.getInstance(\"SHA-256\") ou plus fort. Pour les mots de passe, employez un KDF lent : BCrypt, PBKDF2, Argon2 ou scrypt — jamais un hash brut."
+  },
+  "java-weak-crypto-sha1": {
+    "problem": "SHA-1 est cassé face aux attaques par collision (SHAttered, 2017). Il ne doit plus servir aux signatures numériques, aux empreintes de certificats ni à aucune vérification d'intégrité face à un adversaire.",
+    "impact": "Un attaquant peut produire deux entrées différentes partageant le même SHA-1, contournant les vérifications de signature ou d'intégrité.",
+    "fix": "Utilisez SHA-256, SHA-384 ou SHA-3 à la place. Pour les mots de passe, utilisez BCrypt / Argon2 / PBKDF2."
+  },
+  "java-weak-cipher-des": {
+    "problem": "DES utilise une clé de 56 bits, cassable par force brute en quelques heures sur du matériel moderne. Il est obsolète et ne doit jamais servir à la confidentialité.",
+    "impact": "Toute donnée chiffrée avec DES peut être récupérée par un attaquant disposant de moyens modestes.",
+    "fix": "Utilisez AES dans un mode robuste : Cipher.getInstance(\"AES/GCM/NoPadding\") avec une clé aléatoire de 128 ou 256 bits et un IV unique de 12 octets par message."
+  },
+  "java-weak-cipher-ecb": {
+    "problem": "ECB chiffre chaque bloc indépendamment, donc des blocs de texte clair identiques produisent des blocs chiffrés identiques. Les motifs du texte clair transparaissent dans le chiffré.",
+    "impact": "Un attaquant peut détecter des données répétées, échanger des blocs entre messages ou reconstruire une partie du texte clair.",
+    "fix": "Utilisez un mode authentifié : AES/GCM/NoPadding avec un IV unique par message. Si vous ne pouvez pas utiliser le chiffrement authentifié, employez AES/CBC/PKCS5Padding avec un IV aléatoire et un MAC séparé (encrypt-then-MAC)."
+  },
+  "java-hardcoded-password": {
+    "problem": "Un mot de passe, une clé d'API ou un secret est écrit en dur dans le code. Toute personne ayant accès au dépôt, au JAR compilé ou à un décompilateur peut le lire.",
+    "impact": "Compromission totale du compte ou service que ce secret protège. La rotation impose un redéploiement.",
+    "fix": "Lisez les secrets depuis des variables d'environnement, un fichier de configuration hors du dépôt ou un gestionnaire de secrets (HashiCorp Vault, AWS Secrets Manager, Spring Cloud Config avec valeurs chiffrées)."
+  },
+  "java-jndi-lookup-user-input": {
+    "problem": "ctx.lookup() avec un nom variable laisse l'appelant récupérer n'importe quelle ressource JNDI, y compris des URL LDAP/RMI qui peuvent renvoyer des objets sérialisés distants exécutés par la JVM.",
+    "impact": "Exécution de code à distance — même classe de bug que Log4Shell (CVE-2021-44228).",
+    "fix": "Ne passez jamais d'entrée utilisateur à lookup(). Utilisez une chaîne fixe pour le nom JNDI. Mettez Log4j à jour vers une version non vulnérable. Réglez com.sun.jndi.ldap.object.trustURLCodebase=false et com.sun.jndi.rmi.object.trustURLCodebase=false."
+  },
+  "java-trust-all-x509": {
+    "problem": "Un X509TrustManager dont checkServerTrusted est vide accepte tous les certificats, y compris auto-signés ou expirés, sur tous les hôtes.",
+    "impact": "Le TLS ne fournit plus d'authentification — un attaquant sur le chemin réseau peut présenter son propre certificat et intercepter le trafic (MITM).",
+    "fix": "Retirez le TrustManager personnalisé et utilisez la valeur par défaut de la JVM (SSLContext.getDefault()). Si vous devez faire confiance à une CA privée, installez-la dans un KeyStore dédié passé à TrustManagerFactory — ne contournez jamais entièrement la validation."
+  },
+  "java-spring-permitall": {
+    "problem": "Spring Security .permitAll() rend une route accessible sans authentification. C'est correct pour /login et les ressources statiques, mais très dangereux sur des endpoints admin ou API.",
+    "impact": "N'importe qui sur internet peut appeler l'endpoint comme s'il était authentifié — exposition complète des données ou actions destructrices, selon la route.",
+    "fix": "Utilisez .authenticated() ou .hasRole(\"ADMIN\") pour les routes protégées. Réservez .permitAll() à des ressources clairement publiques, et auditez chaque occurrence."
+  },
+  "java-printstacktrace-prod": {
+    "problem": "e.printStackTrace() écrit la stack trace complète sur la sortie d'erreur standard. En production, ces traces fuient les noms de classes, chemins de fichiers, versions de librairies et structures de base.",
+    "impact": "Divulgation d'informations qui aide un attaquant à fingerprinter votre stack et trouver des librairies exploitables. C'est aussi inutile en exploitation, car il n'y a pas de corrélation avec les logs.",
+    "fix": "Utilisez un logger : log.error(\"message de contexte\", e). Pour les erreurs côté client, renvoyez un message générique et un identifiant de requête opaque ; conservez les détails côté serveur."
+  },
+  "java-null-comparison-equals": {
+    "problem": "Appeler .equals(null) sur une référence elle-même null déclenche une NullPointerException avant même la comparaison.",
+    "impact": "NPE inattendue à l'exécution — cause fréquente de crashs dans du code qui voulait pourtant simplement demander 'est-ce que cette valeur est null ?'.",
+    "fix": "Écrivez le littéral à gauche : null == x ; ou utilisez Objects.equals(x, null) ; ou plus simplement x == null."
+  },
+  "java-string-compare-eq": {
+    "problem": "En Java, == sur des références String compare l'identité, pas le contenu. Ça ne fonctionne que par hasard pour des littéraux internés et casse dès qu'un côté provient d'une entrée, d'une base de données ou de new String(...).",
+    "impact": "Des comparaisons qui semblent correctes en test se mettent à renvoyer false en production, produisant un flot de contrôle erroné et des bugs silencieux.",
+    "fix": "Utilisez a.equals(b) ou, plus sûr face à un null d'un côté, Objects.equals(a, b). Pour des comparaisons à une constante tolérantes au null, écrivez \"litteral\".equals(value)."
+  },
+  "java-resource-not-closed": {
+    "problem": "Ouvrir un FileInputStream en dehors d'un try-with-resources laisse le descripteur de fichier ouvert si une exception est levée avant l'appel à close().",
+    "impact": "Les descripteurs de fichiers fuient, finissent par saturer les limites de l'OS et cassent des parties non liées de l'application.",
+    "fix": "Encapsulez la ressource dans un try-with-resources : try (FileInputStream fis = new FileInputStream(path)) { ... } — la JVM la ferme automatiquement, même en cas d'exception."
+  },
+  "java-empty-catch": {
+    "problem": "Un bloc catch vide avale silencieusement une exception. L'erreur est perdue : personne ne la journalise, personne ne la traite, le flot d'exécution continue comme si de rien n'était.",
+    "impact": "Les bugs deviennent invisibles. Des erreurs qui devraient stopper ou alerter le système conduisent à un état corrompu en silence.",
+    "fix": "Au minimum, journalisez l'exception : log.warn(\"contexte\", e). Si la récupération est volontaire, laissez un commentaire qui explique pourquoi. Ne capturez jamais juste pour ignorer."
+  },
+  "java-system-out-println-prod": {
+    "problem": "System.out.println court-circuite votre infrastructure de logs : pas de niveau, pas d'horodatage, pas d'identifiant de corrélation, pas de rotation, pas de format structuré.",
+    "impact": "Les signaux d'exploitation utiles sont dispersés et difficiles à interroger. En environnement conteneurisé, ils disparaissent souvent purement et simplement.",
+    "fix": "Utilisez SLF4J ou java.util.logging : log.info(\"message\"), log.debug(...), etc. Configurez le logger via votre framework pour avoir une sortie structurée, filtrée par niveau et agrégée."
+  },
+  "java-todo-comment": {
+    "problem": "Les commentaires TODO et FIXME signalent du travail différé directement dans le code source. S'ils ne sont pas suivis ailleurs, ils vieillissent en silence et leur auteur finit par les oublier.",
+    "impact": "Les TODO non résolus s'accumulent en dette technique invisible — certains masquent des validations ou contrôles de sécurité manquants.",
+    "fix": "Soit corrigez maintenant, soit transformez le TODO en ticket suivi et référencez son numéro dans le commentaire (par ex. // TODO #123 : ...). Supprimez les TODO qui ne s'appliquent plus."
+  }
+}

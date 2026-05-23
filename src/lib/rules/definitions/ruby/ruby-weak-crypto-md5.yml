@@ -1,0 +1,7 @@
+id: ruby-weak-crypto-md5
+language: Ruby
+category: security
+severity: warning
+message: Digest::MD5 is cryptographically broken — use Digest::SHA256 or stronger for any security-sensitive hash
+rule:
+  pattern: Digest::MD5.hexdigest($X)

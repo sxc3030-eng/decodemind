@@ -1,0 +1,7 @@
+id: csharp-weak-crypto-md5
+language: C#
+category: security
+severity: warning
+message: MD5 is cryptographically broken — use SHA-256 or stronger for hashing
+rule:
+  pattern: MD5.Create()

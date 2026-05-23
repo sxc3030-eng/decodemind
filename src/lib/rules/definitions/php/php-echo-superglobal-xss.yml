@@ -1,0 +1,11 @@
+id: php-echo-superglobal-xss
+language: PHP
+category: security
+severity: error
+message: echo of $_GET/$_POST/$_REQUEST value — XSS, escape with htmlspecialchars() before output
+rule:
+  any:
+    - pattern: echo $_GET[$X];
+    - pattern: echo $_POST[$X];
+    - pattern: echo $_REQUEST[$X];
+    - pattern: echo $_COOKIE[$X];

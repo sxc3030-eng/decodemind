@@ -1,0 +1,62 @@
+{
+  "dockerfile-user-root": {
+    "problem": "The image runs as root because no USER instruction was set, or the final USER is root / 0. Anything that escapes the application — a deserialization bug, a vulnerable native library, a misconfigured volume mount — runs with root privileges inside the container.",
+    "impact": "An attacker who lands code execution inside the container starts with full root: they can install tools, read every file in the container, and exploit any kernel or runtime vulnerability for a host breakout.",
+    "fix": "Create an unprivileged user and switch to it before CMD/ENTRYPOINT: RUN adduser --system --no-create-home appuser && USER appuser. Make sure the files the app needs to write are owned by that user."
+  },
+  "dockerfile-image-tag-latest": {
+    "problem": "FROM image:latest (or no tag, which defaults to :latest) pins to a moving target. The same Dockerfile produces different images over time, and the image you tested may not be the one that lands in production.",
+    "impact": "Builds are non-reproducible and may silently pull a newly published image that contains a regression or a vulnerable dependency. Rollback by Dockerfile alone is impossible.",
+    "fix": "Pin to a specific version: FROM nginx:1.25.3-alpine. Even better, pin by digest: FROM nginx@sha256:..., and update via a dependency bot."
+  },
+  "dockerfile-env-secret": {
+    "problem": "ENV PASSWORD=... bakes the value into an image layer. Anyone who can pull the image — your registry, a CI cache, a copy in someone's local docker images — can recover the secret with docker inspect or by exploring the layers.",
+    "impact": "Permanent credential leak through every copy of the image. Rotating the secret means rebuilding and redistributing.",
+    "fix": "Pass secrets at runtime via docker run -e or a secrets file, or at build time with BuildKit: RUN --mount=type=secret,id=mysecret cat /run/secrets/mysecret. Never write secrets into ENV."
+  },
+  "dockerfile-arg-secret": {
+    "problem": "ARG SECRET=... is visible in docker history and persists in the image's metadata even though it is not in the final filesystem. It also leaks via CI build logs.",
+    "impact": "Anyone with access to the image can recover the build-time secret. Often happens with private repository tokens used during pip/npm install.",
+    "fix": "Use BuildKit secret mounts instead: RUN --mount=type=secret,id=github_token,target=/run/secrets/token git clone ... The secret is never persisted into a layer."
+  },
+  "dockerfile-add-url": {
+    "problem": "ADD <url> fetches a remote file at build time without any integrity check. If the remote host is compromised or MITM'd, the downloaded bytes go directly into your image.",
+    "impact": "Supply-chain risk: a malicious file may be installed in the image with no warning. The build looks identical to a clean one.",
+    "fix": "Replace with RUN curl -fsSL <url> -o /tmp/file && echo \"<sha256>  /tmp/file\" | sha256sum -c, then COPY for local files. The checksum makes a poisoned download fail loudly."
+  },
+  "dockerfile-add-instead-of-copy": {
+    "problem": "ADD has two implicit behaviors COPY does not: it auto-extracts local tarballs and downloads URLs. When you really mean 'copy this file', ADD can surprise you by transforming the input.",
+    "impact": "Files are not exactly what you wrote — a .tar.gz that you meant to ship as a single artifact gets unpacked, or a renamed file behaves unexpectedly.",
+    "fix": "Prefer COPY for plain file copies. Reserve ADD for the two cases where its magic is wanted: extracting a local tarball or — even better, avoid — fetching a URL."
+  },
+  "dockerfile-curl-no-verify": {
+    "problem": "curl -k (--insecure) or wget --no-check-certificate disables TLS certificate verification. The connection is encrypted, but you have no guarantee you are talking to the real server.",
+    "impact": "An attacker on the network path (CI runner network, corporate proxy, compromised DNS) can serve a malicious binary that gets installed into the image.",
+    "fix": "Remove the flag. If the certificate is genuinely broken, add the correct CA bundle: RUN curl --cacert /usr/local/share/ca-certificates/internal-ca.crt ..."
+  },
+  "dockerfile-apt-get-no-clean": {
+    "problem": "apt-get install leaves the package index cached in /var/lib/apt/lists/*. The cache adds ~30MB per layer and, more importantly, freezes a snapshot of available packages that may shadow security updates.",
+    "impact": "Bloated image and a stale cache that can mask security advisories on subsequent rebuilds.",
+    "fix": "Chain the cleanup into the same RUN: RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*. One layer, no cache."
+  },
+  "dockerfile-pip-no-version-pin": {
+    "problem": "pip install requests pulls the latest published version every build. Different builds of the same Dockerfile produce different sets of Python packages.",
+    "impact": "Non-reproducible builds. A new release with a regression or a typosquat can land in your image without any change to your Dockerfile.",
+    "fix": "Pin every package: RUN pip install requests==2.31.0. Better, keep a pinned requirements.txt (pip-compile / uv lock) and copy it in: COPY requirements.txt . && RUN pip install -r requirements.txt."
+  },
+  "dockerfile-no-healthcheck": {
+    "problem": "Without HEALTHCHECK, Docker and orchestrators (docker-compose, Swarm, some Kubernetes setups) can only tell whether the process is running, not whether it is actually responding.",
+    "impact": "A wedged process that has stopped serving requests appears healthy. Traffic continues to be routed to it and outages last longer than they should.",
+    "fix": "Add a HEALTHCHECK that exercises a real endpoint: HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD curl -f http://localhost:8080/healthz || exit 1."
+  },
+  "dockerfile-multiple-from-no-name": {
+    "problem": "A multi-stage build with several FROM instructions but no AS <name> aliases relies on positional COPY --from=0 references. Reordering or inserting a stage silently breaks the build.",
+    "impact": "Hard-to-read Dockerfile and fragile build: editing one stage can break copies from another with no clear error.",
+    "fix": "Name every stage: FROM node:20 AS builder, then COPY --from=builder /app/dist /usr/share/nginx/html. Names are documentation and survive reordering."
+  },
+  "dockerfile-shell-form-cmd": {
+    "problem": "CMD npm start (shell form) is executed as /bin/sh -c \"npm start\". Signals sent to the container go to sh, not to your application, so SIGTERM may not propagate and graceful shutdown is broken.",
+    "impact": "Slow or stuck shutdowns, dropped in-flight requests on deploys, zombie processes inside the container.",
+    "fix": "Use the JSON exec form: CMD [\"npm\", \"start\"]. The process becomes PID 1 directly and receives signals. If you need a shell, run a proper init like tini as the entrypoint."
+  }
+}

@@ -1,0 +1,7 @@
+id: php-mysql-query-deprecated
+language: PHP
+category: security
+severity: warning
+message: mysql_query() is deprecated/removed and has no parameterization — migrate to mysqli or PDO with prepared statements
+rule:
+  pattern: mysql_query($X)

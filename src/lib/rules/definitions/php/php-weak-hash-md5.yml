@@ -1,0 +1,7 @@
+id: php-weak-hash-md5
+language: PHP
+category: security
+severity: warning
+message: md5() is cryptographically broken — for passwords use password_hash(), for tokens use random_bytes()/hash('sha256', ...)
+rule:
+  pattern: md5($X)

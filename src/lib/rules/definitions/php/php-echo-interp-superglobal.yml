@@ -1,0 +1,10 @@
+id: php-echo-interp-superglobal
+language: PHP
+category: security
+severity: error
+message: echo with interpolated superglobal — XSS, sanitize with htmlspecialchars() before embedding in HTML
+rule:
+  pattern: echo $S;
+  constraints:
+    S:
+      regex: '\$_(GET|POST|REQUEST|COOKIE)\['

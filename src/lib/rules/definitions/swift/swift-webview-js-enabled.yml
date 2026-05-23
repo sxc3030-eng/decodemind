@@ -1,0 +1,7 @@
+id: swift-webview-js-enabled
+language: Swift
+category: security
+severity: warning
+message: JavaScript enabled on WKWebView — only safe if every page loaded is fully trusted
+rule:
+  pattern: $PREFS.javaScriptEnabled = true

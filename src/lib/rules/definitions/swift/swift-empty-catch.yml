@@ -1,0 +1,9 @@
+id: swift-empty-catch
+language: Swift
+category: bug
+severity: warning
+message: Empty catch block — errors are swallowed silently; at minimum log the error
+rule:
+  pattern: |
+    catch {
+    }

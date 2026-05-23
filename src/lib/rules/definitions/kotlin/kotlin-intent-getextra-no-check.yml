@@ -1,0 +1,7 @@
+id: kotlin-intent-getextra-no-check
+language: Kotlin
+category: security
+severity: warning
+message: intent.getStringExtra returns external untrusted input — null-check and validate (length, format) before use
+rule:
+  pattern: $INTENT.getStringExtra($KEY)

@@ -1,0 +1,10 @@
+id: csharp-deserialize-binaryformatter
+language: C#
+category: security
+severity: error
+message: BinaryFormatter.Deserialize is unsafe by design (CVE-known RCE class) — replace with System.Text.Json or a typed serializer
+rule:
+  pattern: $BF.Deserialize($X)
+  constraints:
+    BF:
+      regex: '(?i)BinaryFormatter'

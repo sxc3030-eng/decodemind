@@ -1,0 +1,112 @@
+{
+  "php-echo-superglobal-xss": {
+    "problem": "Vous affichez une valeur issue de $_GET, $_POST, $_REQUEST ou $_COOKIE directement dans la page. PHP ne l'échappe pas, donc tout HTML ou JavaScript glissé par l'attaquant dans l'URL ou le formulaire est rendu tel quel.",
+    "impact": "XSS réfléchie : l'attaquant peut voler les cookies de session, défigurer la page ou exécuter des actions dans le navigateur de l'utilisateur comme si elles venaient de votre site.",
+    "fix": "Encadrez la valeur avec htmlspecialchars($_GET['x'], ENT_QUOTES, 'UTF-8') avant l'echo, ou utilisez un moteur de templates (Twig, Blade) qui échappe automatiquement."
+  },
+  "php-echo-interp-superglobal": {
+    "problem": "Une chaîne passée à echo interpole $_GET, $_POST ou un autre superglobal directement dans une chaîne entre guillemets doubles. La valeur brute de l'utilisateur est injectée dans le HTML sans échappement.",
+    "impact": "XSS réfléchie, comme un echo direct du superglobal — l'attaquant peut injecter un script et prendre le contrôle des sessions.",
+    "fix": "Récupérez d'abord la valeur dans une variable nettoyée : $name = htmlspecialchars($_GET['name'], ENT_QUOTES, 'UTF-8'); echo \"Hello $name\";."
+  },
+  "php-eval-call": {
+    "problem": "eval() exécute la chaîne reçue comme code PHP. Si une partie de cette chaîne peut être influencée par une requête HTTP, l'utilisateur contrôle le code exécuté par le serveur.",
+    "impact": "Exécution de code à distance totale : lecture de tout fichier accessible à PHP, ouverture de connexions sortantes, dépôt d'un webshell.",
+    "fix": "Supprimez eval(). Utilisez un vrai parseur, un fichier de configuration, ou call_user_func() avec une liste blanche réduite de callables nommés."
+  },
+  "php-shell-exec-call": {
+    "problem": "shell_exec() exécute son argument via le shell du système. Les caractères spéciaux (;, |, &&, backticks) y sont interprétés.",
+    "impact": "Injection de commande — l'attaquant peut exécuter n'importe quelle commande sous l'utilisateur du serveur web et lire ou modifier tout fichier accessible.",
+    "fix": "Évitez le shell. Utilisez proc_open() avec un tableau argv, ou passez chaque argument variable par escapeshellarg() avant concaténation."
+  },
+  "php-exec-call": {
+    "problem": "exec() lance une commande via le shell. Le contenu fourni par l'utilisateur est analysé par le shell, et non traité comme un argument littéral.",
+    "impact": "Injection de commande aboutissant à une exécution de code distante sous le compte du serveur web.",
+    "fix": "Supprimez l'exécution shell ou enveloppez chaque argument variable avec escapeshellarg(). Mieux : passez à proc_open() avec un tableau d'arguments."
+  },
+  "php-system-call": {
+    "problem": "system() exécute une commande shell et imprime sa sortie. Une variable $CMD contient typiquement des données utilisateur que le shell va interpréter.",
+    "impact": "Injection de commande : l'attaquant peut lire /etc, exfiltrer les identifiants de base, ou lancer un reverse shell.",
+    "fix": "Utilisez proc_open() avec des arguments séparés. Si system() est indispensable, validez $CMD contre une liste blanche stricte avant l'appel."
+  },
+  "php-passthru-call": {
+    "problem": "passthru() lance une commande shell et transmet la sortie binaire au navigateur. Toute variable non échappée dans la ligne de commande est interprétée par le shell.",
+    "impact": "Injection de commande sur le serveur, avec en prime des réponses HTTP imprévisibles.",
+    "fix": "Remplacez passthru() par proc_open() et lisez stdout depuis PHP. Validez chaque argument variable avant utilisation."
+  },
+  "php-include-variable": {
+    "problem": "include/require avec un chemin variable laisse l'appelant choisir quel fichier PHP le serveur exécute. Si la variable provient de la requête, l'attaquant choisit le chemin.",
+    "impact": "Inclusion de fichier local (LFI) menant à la divulgation du code source, l'empoisonnement de logs ou la RCE. Avec allow_url_include, cela devient une RFI.",
+    "fix": "Construisez un switch ou une liste blanche qui mappe des identifiants connus à des chemins fixes. Ne concaténez jamais $_GET/$_POST dans un chemin d'include."
+  },
+  "php-include-once-variable": {
+    "problem": "include_once/require_once avec un chemin variable a le même risque qu'un include avec chemin variable — la cible de l'inclusion est dynamique.",
+    "impact": "LFI/RFI : l'attaquant peut révéler le code source, exécuter un fichier PHP arbitraire ou, selon la configuration, inclure une URL distante.",
+    "fix": "Mappez l'entrée utilisateur à un ensemble fini de fichiers via un switch ou un tableau. Refusez tout ce qui n'est pas dans la liste blanche."
+  },
+  "php-unserialize-call": {
+    "problem": "unserialize() reconstruit des objets PHP depuis une chaîne. Via les méthodes magiques (__wakeup, __destruct), une charge utile bien forgée peut déclencher du code dans n'importe quelle classe chargée par l'application.",
+    "impact": "Attaques d'object-injection menant à l'exécution de code distante, à la suppression de fichiers, ou au contournement d'authentification.",
+    "fix": "Utilisez json_decode() / json_encode() pour les données non fiables. Si unserialize() est inévitable, passez l'option allowed_classes avec une liste blanche minimale."
+  },
+  "php-mysqli-query-concat": {
+    "problem": "La requête SQL est construite par concaténation d'une variable. Si $V vient de la requête HTTP, la base interprète le SQL de l'attaquant comme partie intégrante de la requête.",
+    "impact": "Injection SQL : accès complet en lecture/écriture à la base, dump d'identifiants, falsification de données, et parfois RCE via INTO OUTFILE.",
+    "fix": "Utilisez les requêtes préparées : $stmt = $conn->prepare('SELECT ... WHERE id = ?'); $stmt->bind_param('i', $id); $stmt->execute();."
+  },
+  "php-mysql-query-deprecated": {
+    "problem": "Les fonctions héritées ext/mysql (mysql_query, mysql_connect, ...) ont été supprimées en PHP 7. Elles n'ont jamais offert de vraies requêtes paramétrées.",
+    "impact": "Le code planera sur PHP 7+ et tout SQL bâti autour est presque toujours concaténé, donc vulnérable à l'injection.",
+    "fix": "Migrez vers mysqli ou PDO avec des requêtes préparées et paramètres liés."
+  },
+  "php-weak-hash-md5": {
+    "problem": "md5() est rapide et cassé aux collisions. Pour des mots de passe ou des jetons, un GPU moderne retrouve un mot de passe en quelques minutes depuis un hash volé.",
+    "impact": "Les hashs volés équivalent à des mots de passe en clair ; les mots de passe réutilisés fuient vers d'autres services.",
+    "fix": "Pour les mots de passe, utilisez password_hash($pwd, PASSWORD_DEFAULT) et password_verify(). Pour les jetons, random_bytes(32) puis stockage hex/base64. md5() ne convient que pour les checksums non sécuritaires."
+  },
+  "php-weak-hash-sha1": {
+    "problem": "sha1() présente des collisions démontrées et reste trop rapide pour résister au brute-force sur une base de mots de passe volée.",
+    "impact": "Même risque que md5 pour les identifiants : hashs cassables, contrôles d'intégrité falsifiables.",
+    "fix": "Utilisez password_hash() pour les mots de passe. Pour l'intégrité des données, hash('sha256', $data) ou hash_hmac('sha256', $data, $key)."
+  },
+  "php-hardcoded-password": {
+    "problem": "Une variable nommée password / secret / apiKey / token est initialisée par une chaîne littérale. Toute personne ayant accès en lecture au repo ou au fichier déployé récupère l'identifiant.",
+    "impact": "Fuite d'identifiants : le secret se retrouve dans l'historique git, les images de conteneur, et les postes de dev. La rotation impose un changement de code.",
+    "fix": "Lisez la valeur depuis getenv('API_KEY') ou un gestionnaire de secrets. Ne gardez le littéral que dans un .env ignoré par git."
+  },
+  "php-curl-ssl-verify-false": {
+    "problem": "Mettre CURLOPT_SSL_VERIFYPEER à false désactive la vérification du certificat TLS. Le handle cURL accepte n'importe quel certificat, même auto-signé ou contrôlé par un attaquant.",
+    "impact": "Man-in-the-middle : toute personne sur le chemin réseau peut intercepter et modifier la requête prétendument sécurisée, volant tokens et réponses.",
+    "fix": "Laissez l'option à sa valeur par défaut (true). Si une CA d'entreprise est en jeu, pointez CURLOPT_CAINFO vers le bon bundle plutôt que de désactiver la vérification."
+  },
+  "php-error-reporting-display-prod": {
+    "problem": "ini_set('display_errors', '1') indique à PHP d'afficher les warnings et traces de pile dans la réponse HTTP. En production, cela divulgue chemins de fichiers, versions de bibliothèques et fragments de SQL.",
+    "impact": "Fuite d'information qui aide l'attaquant à cibler ses exploits, et UX dégradée pour les utilisateurs normaux.",
+    "fix": "En production, display_errors à '0' et reposez-vous sur log_errors / error_log(). Affichez une page 5xx générique côté front."
+  },
+  "php-empty-catch": {
+    "problem": "Le bloc catch est vide. L'exception est silencieusement avalée — pas de log, pas de re-throw, pas de fallback.",
+    "impact": "Les bugs disparaissent : un paiement échoué semble réussi, un fichier manquant est traité comme vide. Déboguer plus tard devient de la divination.",
+    "fix": "Loguez au minimum l'exception (error_log($e->getMessage())), puis relancez-la ou appliquez un fallback explicite. N'utilisez jamais catch comme silenceur."
+  },
+  "php-loose-equality": {
+    "problem": "L'opérateur == de PHP fait du type juggling : '0' == 'abc' est vrai en PHP 7, 0 == 'abc' l'était avant PHP 8, '1e2' == '100' l'est toujours. Les comparaisons trompent l'intuition.",
+    "impact": "Contournements d'authentification (token == 0), mauvais branchements, bugs logiques difficiles à pister.",
+    "fix": "Utilisez === et !== pour comparer valeur et type. Si la coercition est vraiment nécessaire, castez explicitement : (string)$a === (string)$b."
+  },
+  "php-todo-comment": {
+    "problem": "Un commentaire TODO ou FIXME traîne dans le code. Il signale du travail incomplet sans propriétaire ni échéance.",
+    "impact": "La note moisit, les nouveaux contributeurs supposent qu'elle est à jour, et le problème sous-jacent n'est jamais corrigé.",
+    "fix": "Ouvrez un ticket dans le tracker avec le contexte, liez-le dans le commentaire, ou bien terminez le travail avant le merge."
+  },
+  "php-var-dump-prod": {
+    "problem": "var_dump() / print_r() écrivent le contenu d'une variable directement dans la réponse. Souvent un reliquat de debug qui part en release.",
+    "impact": "Fuite d'état interne — lignes de base, données de session, config — vers toute personne pouvant accéder à la page, casse la mise en page et perturbe les utilisateurs.",
+    "fix": "Retirez les appels de debug avant le commit, ou routez-les via error_log() / un vrai logger conditionné par un flag d'environnement."
+  },
+  "php-file-get-contents-url": {
+    "problem": "file_get_contents() avec une URL variable signifie que le serveur récupère l'adresse choisie par l'appelant. Si la variable provient de l'utilisateur, l'attaquant choisit la cible.",
+    "impact": "Server-Side Request Forgery (SSRF) : l'attaquant peut atteindre des services internes (169.254.169.254, Redis interne, intranet admin) avec les droits réseau du serveur.",
+    "fix": "Analysez l'URL avec parse_url(), imposez une liste blanche de schémas (https seul) et validez l'hôte contre une liste blanche de domaines avant la requête."
+  }
+}

@@ -1,0 +1,7 @@
+id: kotlin-todo-fn-call
+language: Kotlin
+category: bug
+severity: warning
+message: TODO() call left in code — throws NotImplementedError at runtime; implement the branch before shipping
+rule:
+  pattern: TODO($MSG)

@@ -1,0 +1,10 @@
+id: swift-runtime-shell-exec
+language: Swift
+category: security
+severity: error
+message: Process.arguments set from a variable — if any element is user-controlled, this is command injection
+rule:
+  pattern: $TASK.arguments = $ARGS
+  constraints:
+    ARGS:
+      regex: '^[a-zA-Z_]'

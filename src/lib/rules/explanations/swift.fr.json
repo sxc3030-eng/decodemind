@@ -1,0 +1,97 @@
+{
+  "swift-ats-allow-arbitrary-loads": {
+    "problem": "NSAllowsArbitraryLoads desactive completement App Transport Security. L'application peut alors faire des requetes HTTP en clair, et les serveurs distants mal configures en TLS sont acceptes sans broncher.",
+    "impact": "Le trafic reseau peut etre lu ou modifie sur les reseaux hostiles (Wi-Fi public, proxy d'hotel). Apple flagge aussi ce reglage en revue App Store et peut rejeter le binaire.",
+    "fix": "Retirez NSAllowsArbitraryLoads. Si un domaine precis exige vraiment du HTTP, declarez une exception ciblee dans NSExceptionDomains avec la portee la plus etroite possible."
+  },
+  "swift-http-cleartext-url": {
+    "problem": "URL(string: \"http://...\") cree un endpoint non chiffre. ATS bloque la requete sur iOS 9+, et meme quand elle passe, les donnees sont visibles par quiconque est sur le meme reseau.",
+    "impact": "Les identifiants, jetons et donnees personnelles transitant par cette URL peuvent etre intercepts ou alteres.",
+    "fix": "Passez l'URL en https://. Si le serveur ne supporte pas TLS, corrigez le serveur, ne fragilisez pas le client."
+  },
+  "swift-userdefaults-secret": {
+    "problem": "UserDefaults stocke les valeurs en clair dans un fichier plist du sandbox de l'app. Sur appareil jailbreake ou via un backup iTunes/Fichiers, n'importe qui ayant acces au fichier lit le secret.",
+    "impact": "Les jetons d'authentification, mots de passe et cles d'API sont exposes au-dela des redemarrages et accessibles aux outils d'analyse forensique.",
+    "fix": "Utilisez l'API Keychain Services (SecItemAdd / KeychainSwift / SwiftKeychainWrapper) avec une valeur kSecAttrAccessible adaptee."
+  },
+  "swift-hardcoded-api-key": {
+    "problem": "Inscrire un long secret en chaine litterale dans le code revient a l'inclure dans le binaire compile. Une commande `strings VotreApp` ou n'importe quel desassembleur le recupere en quelques secondes.",
+    "impact": "Toute personne qui telecharge votre app sur l'App Store peut extraire le secret et le reutiliser depuis l'exterieur.",
+    "fix": "Recuperez le secret via un jeton emis par le serveur apres authentification, ou stockez-le dans le Keychain apres un setup initial. Pour la configuration de build, utilisez des fichiers xcconfig exclus du depot."
+  },
+  "swift-weak-crypto-md5": {
+    "problem": "MD5 est casse pour tout usage de securite, les collisions se generent en quelques secondes sur du materiel grand public.",
+    "impact": "Signatures, controles d'integrite et hashs de mots de passe construits sur MD5 peuvent etre forges ou precalcules par un attaquant.",
+    "fix": "Utilisez SHA-256 depuis CryptoKit (SHA256.hash(data:)) pour l'integrite, et Argon2/bcrypt/scrypt ou PBKDF2 pour les mots de passe."
+  },
+  "swift-weak-crypto-sha1": {
+    "problem": "Les collisions SHA-1 ont ete demontrees publiquement. Cet algorithme ne doit plus servir aux signatures numeriques, certificats ou tout usage anti-falsification.",
+    "impact": "Un attaquant peut fabriquer deux entrees differentes partageant le meme hash SHA-1, ce qui invalide tout controle d'integrite.",
+    "fix": "Utilisez SHA-256 (ou SHA-512) depuis CryptoKit. Pour HMAC, utilisez HMAC<SHA256> depuis CryptoKit."
+  },
+  "swift-keychain-no-access-control": {
+    "problem": "SecItemAdd appele sans kSecAttrAccessControl utilise l'acces par defaut du Keychain, typiquement disponible des que l'appareil est deverrouille, sans demande biometrique ni code.",
+    "impact": "Si le telephone est deverrouille et confie a quelqu'un (ou compromis par une autre app exploitant un bug iOS), le secret est lisible sans authentification supplementaire.",
+    "fix": "Ajoutez un kSecAttrAccessControl construit avec SecAccessControlCreateWithFlags et l'un de .userPresence, .biometryCurrentSet ou .devicePasscode selon votre modele de menace."
+  },
+  "swift-webview-js-enabled": {
+    "problem": "Activer JavaScript sur un WKWebView n'est sur que si toutes les URL chargees sont sous votre controle. Si du HTML non fiable ou une redirection peut atteindre cette vue, JS devient une surface XSS.",
+    "impact": "Un attaquant qui controle le contenu charge peut appeler vos ponts natifs, lire les donnees du DOM ou pivoter vers d'autres origines via des redirections.",
+    "fix": "Desactivez JS sauf necessite reelle (configuration.defaultWebpagePreferences.allowsContentJavaScript = false) et limitez les chargements a une allowlist d'origines de confiance."
+  },
+  "swift-webview-load-untrusted-html": {
+    "problem": "loadHTMLString avec baseURL: nil rend le HTML comme s'il s'agissait d'un fichier local. Tout <script> dans $STR s'execute dans le contexte web de votre app, sans application de la Same-Origin Policy.",
+    "impact": "Si $STR contient de l'entree utilisateur, vous avez du XSS stocke a l'interieur meme de votre app, capable d'appeler les ponts JS et d'exfiltrer des donnees.",
+    "fix": "Echappez le HTML de l'entree utilisateur avant de l'injecter, ou affichez du markdown/texte dans des vues natives UIKit/SwiftUI plutot que dans un webview."
+  },
+  "swift-eval-via-nsexpression": {
+    "problem": "NSExpression analyse et evalue la chaine de format a l'execution, y compris les appels de fonctions et l'arithmetique. Si le format contient quoi que ce soit de controle par l'utilisateur, il peut executer du code.",
+    "impact": "Un attaquant peut invoquer des selecteurs arbitraires, ce qui provoque des crashes ou, avec un usage habile de FUNCTION(), de l'execution de code reelle.",
+    "fix": "Ne construisez jamais la chaine de format a partir d'entree utilisateur. Utilisez un petit parser dedie, ou calculez directement la valeur en Swift."
+  },
+  "swift-trust-all-cert": {
+    "problem": "Appeler completionHandler(.useCredential, URLCredential(trust: trust)) dans didReceive challenge accepte le certificat serveur quel que soit sa validite. Cela neutralise TLS.",
+    "impact": "N'importe quel adversaire reseau (proxy d'entreprise, Wi-Fi de cafe, routeur hostile) peut intercepter et modifier le trafic HTTPS.",
+    "fix": "Laissez le systeme faire la validation par defaut (completionHandler(.performDefaultHandling, nil)) ou epinglez explicitement le certificat ou la cle publique avec SecTrustEvaluateWithError."
+  },
+  "swift-print-sensitive": {
+    "problem": "print() ecrit dans l'unified log systeme sans redaction de confidentialite. Tout ce que vous imprimez est visible dans Console.app quand l'appareil est branche a un Mac.",
+    "impact": "Jetons, identifiants utilisateurs ou donnees personnelles imprimes en debug peuvent rester en production et fuiter via les logs de l'appareil.",
+    "fix": "Utilisez os.Logger avec les modificateurs de confidentialite, par exemple logger.info(\"user \\(id, privacy: .private)\"), et entourez les logs verbeux d'un #if DEBUG."
+  },
+  "swift-runtime-shell-exec": {
+    "problem": "Process().arguments accepte un tableau de chaines passees a un sous-processus. Si un element provient d'une entree utilisateur sans validation stricte, l'utilisateur peut changer le programme execute ou injecter des options arbitraires.",
+    "impact": "Injection de commande cote macOS, ce qui aboutit a l'execution de code avec les droits de l'utilisateur courant.",
+    "fix": "Validez chaque argument contre une liste blanche avant de le passer, et ne laissez jamais l'entree utilisateur designer le chemin de l'executable."
+  },
+  "swift-deeplink-no-validation": {
+    "problem": "Le handler application(_:open:options:) recoit une URL mais le corps n'inspecte jamais url.scheme ou url.host. N'importe quelle app du telephone peut ouvrir votre schema et declencher les chemins de code que vous avez branches.",
+    "impact": "Une app malveillante peut fabriquer un deep link pour deconnecter l'utilisateur, transferer de l'etat ou ouvrir des ecrans privilegies.",
+    "fix": "Verifiez que url.scheme correspond a votre schema enregistre et que url.host correspond a une route attendue, refusez sinon. Traitez les parametres d'URL comme des entrees non fiables."
+  },
+  "swift-force-unwrap": {
+    "problem": "L'operateur postfix ! deballe un Optional et crash le processus si la valeur est nil. Les crashes par force-unwrap sont une des causes les plus frequentes de plantages d'apps iOS.",
+    "impact": "Une valeur nil provoque un EXC_BREAKPOINT et un crash immediat visible par l'utilisateur.",
+    "fix": "Utilisez `if let` / `guard let`, l'operateur `??` de coalescence du nil, ou le chainage optionnel. Reservez ! aux valeurs dont la non-nullite est garantie par construction."
+  },
+  "swift-force-try": {
+    "problem": "try! ignore le contrat do/catch et crash le processus si l'appel jette une erreur.",
+    "impact": "N'importe quelle erreur jetee, y compris celles que l'utilisateur peut declencher (fichier corrompu, probleme reseau), devient un crash dur.",
+    "fix": "Encadrez l'appel dans un do/catch et gerez l'erreur, ou utilisez `try?` pour la convertir en Optional quand vous pouvez vous rabattre sur nil."
+  },
+  "swift-empty-catch": {
+    "problem": "Un bloc catch vide avale silencieusement l'erreur. Le programme continue comme si de rien n'etait, ce qui rend les pannes invisibles jusqu'a ce qu'elles corrompent des donnees en aval.",
+    "impact": "Des bugs se cachent longtemps et le debug d'incidents devient bien plus difficile sans l'erreur d'origine.",
+    "fix": "Au minimum loggez l'erreur (Logger / os_log). Mieux, decidez si la fonction doit relancer, retourner un Result ou se rabattre sur une valeur par defaut sure."
+  },
+  "swift-todo-comment": {
+    "problem": "Les commentaires TODO et FIXME sont des rappels qu'un morceau est incomplet ou casse. Ils s'accumulent et finissent par etre oublies.",
+    "impact": "La dette technique listee derive, les commentaires seuls ne sont ni tries ni planifies.",
+    "fix": "Corrigez l'element immediatement ou ouvrez un ticket dans votre tracker et referencez son ID dans le commentaire, puis retirez le TODO nu."
+  },
+  "swift-fatalError-prod": {
+    "problem": "fatalError() crash l'app sans condition. C'est acceptable pour des chemins de code reellement impossibles, pas pour valider une entree ou gerer un etat inattendu en runtime.",
+    "impact": "Un fatalError atteignable donne un crash dur a l'utilisateur la ou une gestion gracieuse serait possible.",
+    "fix": "Remplacez par une vraie propagation d'erreur (throw, Result), une assertion (assertionFailure ne crashe qu'en debug), ou un etat d'erreur UI."
+  }
+}

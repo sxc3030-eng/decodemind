@@ -1,0 +1,7 @@
+id: java-weak-cipher-des
+language: Java
+category: security
+severity: error
+message: Cipher.getInstance("DES") uses a broken 56-bit cipher — use AES with GCM mode
+rule:
+  pattern: Cipher.getInstance("DES")

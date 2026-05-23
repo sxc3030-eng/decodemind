@@ -9,7 +9,30 @@ interface ExplanationEntry {
   fix: string;
 }
 
-const EN_EXPL = enExplanations as Record<string, ExplanationEntry>;
+// V1 explanations (60 rules from the original rule library)
+const V1_EXPL = enExplanations as Record<string, ExplanationEntry>;
+
+// V2 explanations live in `src/lib/rules/explanations/<lang>.en.json` —
+// one file per language family (Java, Kotlin, Swift, Dart, C#, PHP, Go, Ruby,
+// Bash, Dockerfile, YAML). Vite's `import.meta.glob` with `eager: true` bundles
+// them at build time into a single map. We merge them into one EN dictionary
+// so finding lookup is a flat O(1) by rule id.
+//
+// The query string `?json` tells Vite to import the JSON as a parsed module.
+const v2ExplGlob = import.meta.glob<Record<string, ExplanationEntry>>(
+  '@/lib/rules/explanations/*.en.json',
+  { eager: true, import: 'default' },
+);
+
+function mergeExplanations(): Record<string, ExplanationEntry> {
+  const out: Record<string, ExplanationEntry> = { ...V1_EXPL };
+  for (const mod of Object.values(v2ExplGlob)) {
+    Object.assign(out, mod);
+  }
+  return out;
+}
+
+const EN_EXPL = mergeExplanations();
 
 export function toReport(scan: FolderScanReport): Report {
   try {

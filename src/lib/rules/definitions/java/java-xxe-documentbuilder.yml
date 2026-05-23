@@ -1,0 +1,7 @@
+id: java-xxe-documentbuilder
+language: Java
+category: security
+severity: error
+message: DocumentBuilderFactory.newInstance() without disabling external entities — XXE risk; set FEATURE_SECURE_PROCESSING and disable DOCTYPE
+rule:
+  pattern: DocumentBuilderFactory.newInstance()

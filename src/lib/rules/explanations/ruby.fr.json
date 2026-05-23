@@ -1,0 +1,57 @@
+{
+  "ruby-eval-call": {
+    "problem": "eval() prend une chaine et l'execute comme du code Ruby. Si une partie de cette chaine vient d'une entree utilisateur, l'utilisateur peut executer du Ruby arbitraire dans ton processus.",
+    "impact": "Execution de code a distance complete. L'attaquant a les memes droits que ton application.",
+    "fix": "Evite eval. Si tu as besoin de comportement dynamique, utilise un DSL restreint, une table de dispatch par hash, ou send avec une whitelist de noms de methode."
+  },
+  "ruby-system-call-shell": {
+    "problem": "Appeler system() (ou les backticks) avec une variable passe par un shell qui parse la chaine. Tout ce que l'utilisateur peut influencer dans cette chaine peut introduire de nouvelles commandes.",
+    "impact": "Command injection : execution de commandes arbitraires avec les privileges du processus Ruby.",
+    "fix": "Passe les arguments separes : system(\"git\", \"clone\", url). Le shell n'intervient plus, les meta-caracteres dans url ne peuvent plus injecter de commande."
+  },
+  "ruby-rails-where-sql-concat": {
+    "problem": "Le .where d'Active Record accepte un fragment SQL brut. Y concatener une entree utilisateur la colle directement dans le SQL.",
+    "impact": "SQL injection classique : lecture, modification ou suppression de donnees arbitraires via le controleur.",
+    "fix": "Utilise des placeholders : where(\"name = ?\", name) ou la forme hash where(name: name). Les deux lient la valeur en toute securite."
+  },
+  "ruby-rails-find-by-sql-string": {
+    "problem": "find_by_sql execute une chaine SQL brute. Y concatener une entree utilisateur a exactement le meme risque que dans .where.",
+    "impact": "SQL injection complete avec acces lecture/ecriture a la base.",
+    "fix": "Passe un tableau avec des parametres lies : find_by_sql([\"SELECT * FROM users WHERE name = ?\", name])."
+  },
+  "ruby-mass-assignment-attributes": {
+    "problem": "Appeler Model.new(params[:user]) (ou update avec la meme forme) laisse la requete fixer tous les attributs du modele, y compris ceux que l'utilisateur ne devrait pas pouvoir toucher comme admin ou user_id.",
+    "impact": "Escalade de privilege, prise de compte, ou altercation arbitraire de donnees en ajoutant des champs au formulaire.",
+    "fix": "Utilise les strong parameters : params.require(:user).permit(:name, :email). Whiteliste uniquement les champs que l'utilisateur a le droit de modifier."
+  },
+  "ruby-yaml-load-untrusted": {
+    "problem": "YAML.load peut instancier des objets Ruby arbitraires depuis le document, ce qui veut dire qu'un payload YAML construit peut executer du code pendant le chargement.",
+    "impact": "Execution de code a distance des qu'un YAML non fiable est parse (cookies, uploads, config recue par le reseau).",
+    "fix": "Utilise YAML.safe_load (ou Psych.safe_load) et passe une liste explicite de classes autorisees si tu as besoin de plus que les primitives."
+  },
+  "ruby-weak-crypto-md5": {
+    "problem": "MD5 a des attaques de collision pratiques et n'est plus sur pour un hachage sensible.",
+    "impact": "Signatures, controles d'integrite ou stockage de mots de passe bases sur MD5 peuvent etre forges ou casses en force brute.",
+    "fix": "Utilise Digest::SHA256 pour le hachage general, et bcrypt (via la gem bcrypt) ou argon2 pour les mots de passe."
+  },
+  "ruby-weak-crypto-sha1": {
+    "problem": "SHA-1 est casse cote resistance aux collisions. Deux entrees differentes peuvent produire le meme hash.",
+    "impact": "Signatures ou recherches par contenu basees sur SHA-1 peuvent etre confondues ou forgees.",
+    "fix": "Passe a Digest::SHA256 ou plus fort. Reserve SHA-1 a la compatibilite legacy uniquement."
+  },
+  "ruby-hardcoded-password": {
+    "problem": "Un mot de passe, secret ou cle d'API est une chaine litterale dans le source. Chaque clone, fork et log de CI peut le reveler.",
+    "impact": "Fuite de credential qui persiste souvent dans l'historique git longtemps apres rotation du secret.",
+    "fix": "Lis depuis ENV['NAME'] ou Rails.application.credentials. Ajoute la variable a ta plateforme de deploiement et ne la committe jamais."
+  },
+  "ruby-render-inline-no-escape": {
+    "problem": "render inline: prend un template ERB a l'execution. Si le contenu du template est variable, un attaquant qui controle cette variable peut executer du Ruby arbitraire dans le template.",
+    "impact": "Server-side template injection : equivalent a une RCE sur la plupart des apps Rails.",
+    "fix": "Rends un template ou un partial fichier que tu maitrises. Si tu dois absolument utiliser inline, assure-toi que la chaine du template est un litteral code en dur."
+  },
+  "ruby-todo-comment": {
+    "problem": "Un commentaire TODO ou FIXME marque un travail inacheve. Avec le temps ces commentaires s'accumulent et sont rarement traites.",
+    "impact": "Bugs latents et fonctionnalites manquantes se cachent dans le code sans suivi.",
+    "fix": "Deplace le TODO dans ton outil de suivi avec un proprietaire, ou resous-le avant de merger."
+  }
+}

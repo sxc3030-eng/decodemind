@@ -1,0 +1,7 @@
+id: dart-null-assertion
+language: Dart
+category: bug
+severity: warning
+message: Null-assertion operator (!) — crashes the app if the value is null; prefer null-aware operators or explicit checks
+rule:
+  pattern: $X!

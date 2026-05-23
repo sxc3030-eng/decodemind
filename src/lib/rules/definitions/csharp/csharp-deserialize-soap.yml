@@ -1,0 +1,7 @@
+id: csharp-deserialize-soap
+language: C#
+category: security
+severity: error
+message: SoapFormatter.Deserialize is unsafe — allows arbitrary type instantiation leading to RCE; use a safe serializer
+rule:
+  pattern: new SoapFormatter().Deserialize($X)

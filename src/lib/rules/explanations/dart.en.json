@@ -1,0 +1,77 @@
+{
+  "dart-http-cleartext-url": {
+    "problem": "Your code uses an http:// URL instead of https://. Traffic over plain HTTP is not encrypted and can be read or modified by anyone on the network.",
+    "impact": "Attackers on the same Wi-Fi (coffee shop, airport) can intercept tokens, passwords, and API responses. Android 9+ and iOS ATS also block cleartext HTTP by default, so the call may simply fail in production.",
+    "fix": "Switch the URL to https:// and make sure the server has a valid certificate. If you must talk to a legacy HTTP endpoint, restrict it to a single domain via networkSecurityConfig (Android) and NSAppTransportSecurity exceptions (iOS)."
+  },
+  "dart-hardcoded-api-key": {
+    "problem": "An API key, token, or password is written directly in the Dart source. Anyone who decompiles your APK or IPA can extract it in minutes.",
+    "impact": "The secret is effectively public. An attacker can call paid APIs on your bill, impersonate your app, or access backend services.",
+    "fix": "Load secrets at runtime from flutter_secure_storage, a remote config, or environment variables passed via --dart-define. Never commit real keys to the repo."
+  },
+  "dart-shared-prefs-secret": {
+    "problem": "You are storing a password, token, or secret in SharedPreferences. On Android this is a plain XML file in the app's sandbox, on iOS it is a plist — both are readable on a rooted/jailbroken device or via a backup.",
+    "impact": "If the device is compromised, the credentials leak. They are also synced via cloud backups in many configurations.",
+    "fix": "Use the flutter_secure_storage package, which stores values in the Android Keystore and iOS Keychain with hardware-backed encryption."
+  },
+  "dart-http-badcert-allow": {
+    "problem": "Setting badCertificateCallback to return true (or assigning any callback that ignores the certificate) disables TLS certificate validation completely.",
+    "impact": "Anyone running a proxy on the network — including a malicious Wi-Fi hotspot — can decrypt and modify HTTPS traffic. This is the textbook man-in-the-middle attack.",
+    "fix": "Remove the override. If you genuinely need to trust a self-signed cert (e.g. dev environment), pin the specific certificate fingerprint and only accept that one."
+  },
+  "dart-print-sensitive": {
+    "problem": "print() writes to the device's system log (logcat on Android, Console.app on iOS). In release builds these logs can be captured by other apps with the right permissions or by anyone with USB access.",
+    "impact": "Tokens, user IDs, or PII printed for debugging end up exposed in production. They also bloat startup and are visible to crash reporters.",
+    "fix": "Use a structured logger like the logger package, gate debug output behind kDebugMode, and strip print() calls in release builds via a lint rule."
+  },
+  "dart-runtime-process-run": {
+    "problem": "Process.run is being called with a variable as the command name. If any of that string comes from user input, network data, or a file you don't control, the user can choose which binary runs.",
+    "impact": "Command execution on the device. On desktop Flutter targets this is effectively RCE; on mobile it can still pivot through shell utilities.",
+    "fix": "Hardcode the binary path, validate the command against an allowlist, and pass arguments as a separate list (Process.run never invokes a shell when you do this)."
+  },
+  "dart-eval-via-mirror": {
+    "problem": "dart:mirrors lets you invoke methods or read fields by name at runtime. If the name comes from untrusted input, it is functionally equivalent to eval.",
+    "impact": "An attacker can call any reachable method in your app, including ones that touch storage, network, or platform channels.",
+    "fix": "Avoid dart:mirrors in production code — it is not supported in Flutter anyway. If you need dynamic dispatch, use a hand-written switch on a known set of names."
+  },
+  "dart-flutter-secure-storage-missing": {
+    "problem": "An auth token (the most sensitive thing your app holds) is being saved in SharedPreferences. That file is plain text on disk.",
+    "impact": "If the user installs a malicious app with backup-read permission, or if the device is rooted/jailbroken, the token is grabbed. Refresh tokens are particularly bad because they don't expire quickly.",
+    "fix": "Switch to flutter_secure_storage for any token, refresh token, JWT, or session ID. It wraps Keystore on Android and Keychain on iOS."
+  },
+  "dart-weak-random": {
+    "problem": "dart:math Random() is seeded from a low-entropy source and is predictable — given a few outputs you can derive future ones. It is fine for game logic but not for security.",
+    "impact": "If you use Random() to generate session IDs, password reset tokens, OTPs, or nonces, an attacker who sees a couple of values can predict the rest.",
+    "fix": "Use Random.secure() from dart:math. It pulls from the OS CSPRNG (/dev/urandom on Linux, SecRandomCopyBytes on iOS, etc.)."
+  },
+  "dart-null-assertion": {
+    "problem": "The null-assertion operator (!) tells the compiler 'trust me, this is not null'. If the value actually is null at runtime, the app crashes with a NullThrownError.",
+    "impact": "Hard crashes in production, especially around async data, JSON parsing, or platform channel returns. These show up as opaque stack traces in your crash reporter.",
+    "fix": "Use null-aware operators (?.), the ?? fallback, or an explicit if (x != null) check. Reserve ! for cases where you have just null-checked the value on the line above."
+  },
+  "dart-empty-catch": {
+    "problem": "A catch block with no body swallows the error completely. You have no idea something went wrong, and neither does your crash reporter.",
+    "impact": "Bugs become invisible. Network failures, parse errors, and platform exceptions all disappear, leaving the UI in an inconsistent state.",
+    "fix": "At minimum log the error and stack trace. If you genuinely want to ignore a specific exception type, catch only that type and add a comment explaining why."
+  },
+  "dart-late-without-init": {
+    "problem": "A late variable declared without an initializer relies on the programmer to assign it before any read. If a code path reads it first, you get a LateInitializationError at runtime — the compiler cannot help.",
+    "impact": "Crashes that only appear in specific user flows, often after a screen rebuild or a race condition. They are hard to reproduce and hard to test for.",
+    "fix": "Initialize the value inline if you can, mark it nullable (String?) and check for null at use sites, or use late final with an initializer expression."
+  },
+  "dart-string-interpolation-injection": {
+    "problem": "A SQL-looking string contains a $variable interpolated into the query. If that variable comes from user input, it is a classic SQL injection.",
+    "impact": "Depending on the database (sqflite, drift, raw API), an attacker can read or modify data they should not have access to.",
+    "fix": "Use parameterized queries: 'SELECT * FROM users WHERE id = ?' with arguments [id]. The driver escapes values for you."
+  },
+  "dart-todo-comment": {
+    "problem": "A TODO or FIXME comment is sitting in the code. It usually means someone deferred a decision or a fix.",
+    "impact": "TODOs that live in source for months become invisible — nobody knows whose responsibility they are or whether they still apply.",
+    "fix": "Move actionable TODOs to your issue tracker with a ticket ID, and remove stale ones. Keep only comments that explain why the code is the way it is."
+  },
+  "dart-throw-error-no-stack": {
+    "problem": "Throwing a string literal (throw 'something went wrong') is allowed in Dart but you lose the type information and a clean stack trace.",
+    "impact": "Callers cannot catch a specific type, error reporters group strings together oddly, and the message is the only thing you get for debugging.",
+    "fix": "Throw an Exception subclass with a meaningful name (e.g. throw FormatException('expected JSON object')) or define your own error type."
+  }
+}

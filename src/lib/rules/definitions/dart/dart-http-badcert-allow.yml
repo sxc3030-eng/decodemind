@@ -1,0 +1,7 @@
+id: dart-http-badcert-allow
+language: Dart
+category: security
+severity: error
+message: badCertificateCallback returns true — disables TLS certificate validation and allows MITM attacks
+rule:
+  pattern: $CLIENT.badCertificateCallback = $CB

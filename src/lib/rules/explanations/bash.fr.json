@@ -1,0 +1,47 @@
+{
+  "bash-eval-call": {
+    "problem": "eval prend une chaîne et l'exécute comme une nouvelle commande shell. Tout ce qui se retrouve dans cette chaîne — contenu d'un fichier, variable d'environnement, réponse réseau — est exécuté.",
+    "impact": "Toute personne pouvant influencer la chaîne peut exécuter des commandes arbitraires avec les droits de l'utilisateur qui lance le script. C'est une exécution de code locale complète.",
+    "fix": "Évite eval. Pour appeler une commande stockée dans une variable, utilise un tableau : cmd=(ls -l); \"${cmd[@]}\". Pour un aiguillage dynamique, utilise un case sur une liste connue d'actions autorisées."
+  },
+  "bash-curl-pipe-bash": {
+    "problem": "curl ... | bash télécharge un script et l'exécute immédiatement. Le shell fait aveuglément confiance aux octets renvoyés par le serveur et les exécute avec les droits de ton utilisateur.",
+    "impact": "Si le serveur est compromis, détourné, ou simplement interceptable en HTTP clair, un attaquant obtient une exécution de code arbitraire sur la machine qui lance le pipe.",
+    "fix": "Télécharge d'abord le script, vérifie son empreinte ou sa signature, puis exécute-le : curl -fsSL https://example.com/install.sh -o install.sh && sha256sum -c install.sh.sha256 && bash install.sh."
+  },
+  "bash-unquoted-var-rm": {
+    "problem": "rm -rf $DIR découpe la variable sur les espaces, étend les caractères glob, et peut devenir vide si la variable n'est pas définie. Si $DIR est vide, la commande devient rm -rf (sans cible) ; s'il contient des espaces, plusieurs chemins sont effacés ; s'il commence par un tiret, il est interprété comme une option.",
+    "impact": "Suppression massive de fichiers involontaires, ou dans le pire des cas rm -rf / quand la variable est vide. Cause classique de pertes de données catastrophiques dans les scripts CI.",
+    "fix": "Quote systématiquement : rm -rf -- \"$DIR\". Le -- empêche les tirets dans $DIR d'être pris pour des options, les guillemets doubles empêchent le découpage et le globbing."
+  },
+  "bash-sudo-no-password": {
+    "problem": "sudo -n exécute sudo en mode non-interactif — il échoue plutôt que de demander un mot de passe. Ce motif suppose typiquement qu'une entrée sudoers sans mot de passe existe pour cet utilisateur.",
+    "impact": "Si le script ou un programme qu'il appelle peut être altéré, un attaquant peut s'élever en root sans aucun identifiant. La surface d'attaque de toute compromission s'élargit nettement.",
+    "fix": "Retire l'entrée sudoers sans mot de passe dans /etc/sudoers.d et exige une authentification interactive, ou restreins la règle à une commande précise (Cmnd_Alias) plutôt qu'à un joker."
+  },
+  "bash-hardcoded-password": {
+    "problem": "Un mot de passe, une clé d'API ou un jeton est écrit directement en littéral dans le script. Le secret reste dans l'historique git pour toujours et est visible par toute personne qui peut lire le dépôt.",
+    "impact": "Fuite de secret. Quiconque a accès en lecture au dépôt, à une sauvegarde, ou aux logs de build peut s'en servir pour accéder à la ressource protégée.",
+    "fix": "Charge les secrets depuis des variables d'environnement injectées hors du dépôt (export PASSWORD=$(cat /run/secrets/db)), ou récupère-les au runtime depuis un gestionnaire de secrets (Vault, AWS Secrets Manager, sops, etc.)."
+  },
+  "bash-chmod-777": {
+    "problem": "chmod 777 accorde lecture, écriture et exécution au propriétaire, au groupe, et à tout le monde. N'importe quel processus sur la machine — y compris un compte peu privilégié compromis — peut modifier ou remplacer le fichier.",
+    "impact": "Un attaquant qui obtient un shell quelconque sur la machine peut implanter une porte dérobée dans le fichier. Si le fichier est un script ou un binaire lancé par root, c'est un chemin d'escalade de privilèges.",
+    "fix": "Accorde le minimum nécessaire. Fichier édité uniquement par le propriétaire : chmod 600. Écriture par propriétaire, lecture par les autres : chmod 644. Exécutables : chmod 755. Réserve 777 au débogage temporaire."
+  },
+  "bash-wget-no-https": {
+    "problem": "Télécharger en http:// (sans TLS) permet à toute personne sur le chemin réseau entre le script et le serveur de lire ou modifier la réponse. Cela inclut le FAI, l'opérateur d'un hotspot wifi, et quiconque manipule le DNS.",
+    "impact": "Un attaquant peut remplacer le fichier téléchargé par une version malveillante. Si le script l'exécute ensuite ou fait confiance à son contenu, l'attaquant contrôle ce qui tourne.",
+    "fix": "Passe en https://. Si le serveur ne supporte pas TLS, héberge l'artefact ailleurs (CDN par exemple), et vérifie une empreinte sha256 après téléchargement."
+  },
+  "bash-test-string-no-quotes": {
+    "problem": "Dans [ ... ], les variables non quotées sont découpées sur les espaces et étendues comme des globs. Si $X est vide, le test devient [ = $Y ] ce qui est une erreur de syntaxe ; si $X contient des espaces, il est éclaté en plusieurs tokens.",
+    "impact": "Le script plante sur une entrée vide ou produit un mauvais résultat sur une entrée contenant des espaces. En logique conditionnelle, cela fait souvent prendre la mauvaise branche en silence.",
+    "fix": "Quote toujours les variables dans [ ... ] : if [ \"$X\" = \"$Y\" ]. Ou utilise la forme [[ ... ]] qui n'effectue ni découpage ni globbing : if [[ $X = $Y ]]."
+  },
+  "bash-todo-comment": {
+    "problem": "Un marqueur TODO ou FIXME signale du code incomplet ou bogué connu. Une fois écrit dans le script, il devient invisible pour les relecteurs et est rarement traité.",
+    "impact": "Bugs latents et fonctionnalités manquantes restent cachés derrière un commentaire que tout le monde a appris à survoler.",
+    "fix": "Déplace chaque TODO/FIXME dans ton outil de tickets avec un contexte concret, lie le ticket depuis le code si un marqueur reste nécessaire, et supprime les marqueurs qui ne sont plus pertinents."
+  }
+}

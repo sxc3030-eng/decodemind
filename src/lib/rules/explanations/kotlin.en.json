@@ -1,0 +1,112 @@
+{
+  "kotlin-shared-prefs-mode-world": {
+    "problem": "Opening SharedPreferences with MODE_WORLD_READABLE makes the file readable by every other app installed on the device. This mode is deprecated for that reason but still appears in older code.",
+    "impact": "Any malicious app can read your saved data — settings, IDs, even credentials if you stored them here.",
+    "fix": "Use Context.MODE_PRIVATE. For sensitive values, use EncryptedSharedPreferences from androidx.security:security-crypto."
+  },
+  "kotlin-shared-prefs-mode-world-writable": {
+    "problem": "MODE_WORLD_WRITABLE lets any other app on the device modify your preference file. It is deprecated but still found in legacy apps.",
+    "impact": "A malicious app can corrupt your data, change app behavior, or escalate privileges if your code trusts these values.",
+    "fix": "Use Context.MODE_PRIVATE. If you need cross-app data, use a properly secured ContentProvider with permissions."
+  },
+  "kotlin-shared-prefs-plaintext-password": {
+    "problem": "You are storing a password as a plaintext string in SharedPreferences. The underlying XML file lives in the app sandbox but is trivially readable on a rooted device or from a backup.",
+    "impact": "Credentials leak as soon as the device is backed up, rooted, or examined by malware that targets your package.",
+    "fix": "Use androidx.security.crypto.EncryptedSharedPreferences, or store an Android Keystore-backed token instead of a raw password."
+  },
+  "kotlin-shared-prefs-plaintext-token": {
+    "problem": "Auth tokens stored in plain SharedPreferences are readable by anyone with access to the app's data directory (root, backups, forensic tools).",
+    "impact": "Stolen tokens give an attacker the user's session on your backend until the token expires or is revoked.",
+    "fix": "Use EncryptedSharedPreferences, or store the token encrypted with a key kept in the Android Keystore."
+  },
+  "kotlin-webview-js-enabled": {
+    "problem": "Enabling JavaScript on a WebView lets remote pages run scripts inside your app's WebView context. Combined with addJavascriptInterface or file access, this can become an attack surface.",
+    "impact": "Compromised or attacker-controlled pages can call exposed JS interfaces, exfiltrate session data, or pivot into native code.",
+    "fix": "Only enable JS when you control the loaded content. Never load untrusted URLs in a JS-enabled WebView, and avoid addJavascriptInterface on Android < 17."
+  },
+  "kotlin-webview-file-access": {
+    "problem": "allowFileAccess = true lets the WebView load file:// URLs. If you also load remote content or accept user-supplied URLs, the page can navigate into local files.",
+    "impact": "An attacker can read arbitrary files inside your app sandbox by chaining a malicious URL.",
+    "fix": "Set allowFileAccess = false (the default since API 30) and serve local assets via WebViewAssetLoader instead."
+  },
+  "kotlin-webview-universal-access": {
+    "problem": "allowUniversalAccessFromFileURLs lets a file:// page make XHR/fetch requests to any origin, bypassing the same-origin policy entirely.",
+    "impact": "If any local HTML file is reachable by an attacker (downloads, exports), it can steal data from any web origin the user is logged into.",
+    "fix": "Leave this setting at its default (false). Never enable it on a WebView that loads untrusted content."
+  },
+  "kotlin-http-cleartext": {
+    "problem": "A cleartext http:// URL appears in the source. Traffic to this endpoint is unencrypted and visible on the network path.",
+    "impact": "Attackers on the same Wi-Fi or upstream network can read and modify the data — credentials, tokens, API responses.",
+    "fix": "Use https:// and configure Network Security Config to forbid cleartext (cleartextTrafficPermitted=\"false\")."
+  },
+  "kotlin-hardcoded-api-key": {
+    "problem": "An API key is declared as a const val directly in the source. The APK is just a zip — anyone can decompile it and read the constant.",
+    "impact": "Anyone can extract the key, call your APIs on your account, exhaust quotas, or run up your bill.",
+    "fix": "Move the key out of source: read it from a gitignored local.properties via BuildConfig, fetch from a backend, or proxy the API call server-side."
+  },
+  "kotlin-hardcoded-secret": {
+    "problem": "A SECRET constant is embedded in source. Decompiling the APK reveals it instantly — obfuscation does not hide string literals from a determined attacker.",
+    "impact": "Signing keys, encryption keys, or shared secrets leak to anyone who downloads the app.",
+    "fix": "Never ship secrets in the APK. Use BuildConfig for build-time values that are not actually secret, and a backend or Android Keystore for real secrets."
+  },
+  "kotlin-runtime-exec": {
+    "problem": "Runtime.getRuntime().exec runs a shell command. If any part of the command string comes from user input, an attacker can inject extra commands.",
+    "impact": "Arbitrary command execution inside your app's sandbox — file reads, network calls, abuse of granted permissions.",
+    "fix": "Avoid shell exec on Android. If you genuinely need a subprocess, pass an array of arguments and never interpolate user-controlled values."
+  },
+  "kotlin-weak-crypto-md5": {
+    "problem": "MD5 is cryptographically broken: collisions are cheap to compute. It is unsafe for signatures, password hashing, or integrity checks.",
+    "impact": "An attacker can forge data that hashes to the same value, bypassing integrity or authentication checks built on MD5.",
+    "fix": "Use SHA-256 or stronger for general hashing. For password hashing, use BCrypt, Scrypt, or Argon2 — never a raw hash."
+  },
+  "kotlin-weak-crypto-sha1": {
+    "problem": "SHA-1 is deprecated by NIST and broken in practice — collision attacks have been demonstrated. It is unsafe for new signatures or integrity checks.",
+    "impact": "Attackers can craft collisions to bypass signature checks or impersonate legitimate data.",
+    "fix": "Use SHA-256 or SHA-3 for hashing, and HMAC-SHA256 for message authentication."
+  },
+  "kotlin-pending-intent-flag-mutable": {
+    "problem": "A PendingIntent created with FLAG_MUTABLE can be modified by the system component that receives it. On Android 12+, mutability is required to be explicit because of past abuse.",
+    "impact": "Other apps or system components can alter the Intent to redirect it, change its extras, or fire it against unintended targets.",
+    "fix": "Use FLAG_IMMUTABLE unless you specifically need a mutable PendingIntent (e.g. inline reply). Combine with FLAG_UPDATE_CURRENT as needed."
+  },
+  "kotlin-log-sensitive": {
+    "problem": "Log.d (or similar) prints a message that mentions password, token, or secret. Android logs are readable by adb and end up in crash reports, vendor diagnostics, and bug-report dumps.",
+    "impact": "Sensitive values leak to anyone who can pull logs — including support tools and shared crash-report services.",
+    "fix": "Never log credentials or tokens. If you need to log presence, log only a fixed marker (\"token present\") or a non-reversible hash prefix."
+  },
+  "kotlin-trust-all-hostname": {
+    "problem": "A HostnameVerifier that always returns true tells TLS not to check whether the server certificate matches the URL hostname.",
+    "impact": "Anyone able to present any valid certificate can impersonate your backend — full man-in-the-middle, credential and data theft.",
+    "fix": "Remove the custom verifier. If you need a custom CA, configure Network Security Config; for pinning, use OkHttp CertificatePinner."
+  },
+  "kotlin-double-bang": {
+    "problem": "The !! operator forces a nullable value to non-null and throws NullPointerException at runtime if the value is null.",
+    "impact": "Crashes in production whenever the value is unexpectedly null — defeats Kotlin's null safety guarantees.",
+    "fix": "Use ?.let { ... }, requireNotNull(x) { \"reason\" } with a clear message, or an explicit null check with a fallback path."
+  },
+  "kotlin-empty-catch": {
+    "problem": "The catch block is empty — exceptions are caught and silently discarded.",
+    "impact": "Real bugs become invisible. Network failures, IO errors, and security exceptions all disappear without a trace, making the app harder to debug and easier to misuse.",
+    "fix": "At minimum, log the exception (Log.w(TAG, \"...\", e)). Better: handle the specific exception types you expect and let the rest propagate."
+  },
+  "kotlin-runblocking-on-main": {
+    "problem": "runBlocking blocks the calling thread until the coroutine finishes. If called on the main thread, the UI freezes; long blocks trigger an ANR (Application Not Responding) dialog.",
+    "impact": "Janky UI, ANR crashes, and bad app-store reviews. Background work that should be async becomes a hard stall.",
+    "fix": "Launch a coroutine in the appropriate scope (lifecycleScope, viewModelScope) with the right dispatcher (Dispatchers.IO/Default) instead of runBlocking."
+  },
+  "kotlin-println-prod": {
+    "problem": "println writes to System.out, which on Android ends up in logcat but cannot be filtered by tag or stripped from release builds easily.",
+    "impact": "Noisy logs in production, no way to gate by log level, and possible leaks of debug data in released APKs.",
+    "fix": "Use Timber (Timber.d(\"...\")) or android.util.Log with a tag. Configure ProGuard/R8 to strip Log calls from release builds."
+  },
+  "kotlin-todo-fn-call": {
+    "problem": "Kotlin's built-in TODO() function throws NotImplementedError when executed. Leaving it in a code path that ships means a guaranteed crash for any user who hits it.",
+    "impact": "Hard crash for end users — and unlike a comment, the compiler does not warn you it is still there.",
+    "fix": "Implement the missing branch, or replace TODO() with an explicit error that you intend to ship (and gate it behind a feature flag if needed)."
+  },
+  "kotlin-intent-getextra-no-check": {
+    "problem": "intent.getStringExtra returns data supplied by another app or component — it is fully untrusted external input. Using it without null and validity checks invites bugs and abuse.",
+    "impact": "NullPointerExceptions, malformed-input crashes, and in some cases security bugs (path traversal, deep-link injection) if the value is used to build URLs or file paths.",
+    "fix": "Always check for null, validate length and format, and constrain to an allowlist where possible. Treat extras like any other untrusted input."
+  }
+}

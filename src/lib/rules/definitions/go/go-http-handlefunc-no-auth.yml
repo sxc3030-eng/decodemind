@@ -1,0 +1,10 @@
+id: go-http-handlefunc-no-auth
+language: Go
+category: security
+severity: warning
+message: http.HandleFunc on an admin path — ensure the handler enforces authentication and authorization
+rule:
+  pattern: http.HandleFunc($PATH, $HANDLER)
+  constraints:
+    PATH:
+      regex: '^"/admin'

@@ -5,6 +5,10 @@ import type { PrettierResponse } from '@/workers/prettier.worker';
 import type { NormalizedEdit } from '@/lib/fixes/applyEdit';
 import { ruffFixToEdits } from '@/lib/fixes/convertRuffFix';
 import { eslintFixToEdits } from '@/lib/fixes/convertEslintFix';
+// V2 — pure-function scanners (run inline, no worker)
+import { scanManifest } from '@/lib/scanners/osv/scanner';
+import { DOCKERFILE_RULES } from '@/lib/scanners/dockerfile/rules';
+import { YAML_RULES } from '@/lib/scanners/yaml/rules';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -43,7 +47,12 @@ export const MAX_FILE_BYTES = 1_000_000;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type ScannerKind = 'ruff' | 'eslint' | 'prettier-html' | 'prettier-css';
+export type ScannerKind =
+  | 'ruff' | 'eslint' | 'prettier-html' | 'prettier-css'
+  // V2 ast-grep-only languages (no dedicated linter available in the browser)
+  | 'ast-grep'
+  // V2 special scanners — pure-function libraries, no worker needed
+  | 'osv' | 'dockerfile' | 'yaml';
 
 export const EXT_TO_SCANNER: Record<string, ScannerKind> = {
   '.py': 'ruff',
@@ -51,7 +60,44 @@ export const EXT_TO_SCANNER: Record<string, ScannerKind> = {
   '.mjs': 'eslint', '.cjs': 'eslint',
   '.html': 'prettier-html', '.htm': 'prettier-html',
   '.css': 'prettier-css', '.scss': 'prettier-css',
+  // V2 — enterprise back-end
+  '.java': 'ast-grep',
+  '.cs': 'ast-grep',
+  '.php': 'ast-grep',
+  '.go': 'ast-grep',
+  '.rb': 'ast-grep',
+  // V2 — mobile
+  '.kt': 'ast-grep', '.kts': 'ast-grep',
+  '.swift': 'ast-grep',
+  '.dart': 'ast-grep',
+  // V2 — shell + infra
+  '.sh': 'ast-grep', '.bash': 'ast-grep',
+  '.yml': 'yaml', '.yaml': 'yaml',
 };
+
+/**
+ * Some files are recognized by full basename, not extension:
+ *   - Dockerfile (any case) → dockerfile scanner
+ *   - manifests (package.json, requirements.txt, etc.) → osv scanner
+ *
+ * Returns null when the file has no special handler — caller falls back to
+ * EXT_TO_SCANNER on the extension.
+ */
+export function scannerForBasename(name: string): ScannerKind | null {
+  const lower = name.toLowerCase();
+  if (lower === 'dockerfile' || lower.endsWith('.dockerfile')) return 'dockerfile';
+  if (
+    lower === 'package.json' ||
+    lower === 'requirements.txt' || lower === 'requirements-dev.txt' ||
+    lower === 'requirements-prod.txt' || lower === 'dev-requirements.txt' ||
+    lower === 'composer.json' ||
+    lower === 'go.mod' ||
+    lower === 'cargo.toml'
+  ) {
+    return 'osv';
+  }
+  return null;
+}
 
 export interface ScanFile {
   path: string;      // posix-style relative path from the picked root
@@ -139,12 +185,17 @@ export async function collectFiles(
         if (ig && ig.ignores(relativePath)) continue;
         await walk(handle as FileSystemDirectoryHandle, relativePath);
       } else {
-        // It's a file — check extension
-        const dotIdx = name.lastIndexOf('.');
-        if (dotIdx === -1) continue;
-        const ext = name.slice(dotIdx).toLowerCase();
-        const scanner = EXT_TO_SCANNER[ext];
-        if (!scanner) continue;
+        // It's a file. Special-filename scanners (Dockerfile, package.json,
+        // requirements.txt, …) take precedence — they don't have a useful
+        // extension. Otherwise fall back to extension lookup.
+        let scanner: ScannerKind | undefined = scannerForBasename(name) ?? undefined;
+        if (!scanner) {
+          const dotIdx = name.lastIndexOf('.');
+          if (dotIdx === -1) continue;
+          const ext = name.slice(dotIdx).toLowerCase();
+          scanner = EXT_TO_SCANNER[ext];
+          if (!scanner) continue;
+        }
 
         // Check .decodemind-ignore for files
         if (ig && ig.ignores(relativePath)) continue;
@@ -321,14 +372,17 @@ export async function scanAllFiles(
   const findings: AggregatedFinding[] = [];
   const warnings: string[] = [];
 
-  // Pre-count totals per scanner
+  // Pre-count totals per scanner. New scanner kinds default to 0; only those
+  // with matched files actually run.
   const total: Record<ScannerKind, number> = {
     ruff: 0, eslint: 0, 'prettier-html': 0, 'prettier-css': 0,
+    'ast-grep': 0, osv: 0, dockerfile: 0, yaml: 0,
   };
   for (const f of files) total[f.scanner]++;
 
   const done: Record<ScannerKind, number> = {
     ruff: 0, eslint: 0, 'prettier-html': 0, 'prettier-css': 0,
+    'ast-grep': 0, osv: 0, dockerfile: 0, yaml: 0,
   };
 
   let filesScanned = 0;
@@ -429,6 +483,96 @@ export async function scanAllFiles(
       };
     });
     await runPool<PrettierReq, PrettierResponse>(makePrettierWorker, POOL_SIZE, jobs);
+  }
+
+  // ── OSV scanner (pure function, runs inline — no worker) ─────────────────────
+  // Reads manifest files (package.json, requirements.txt, …) and matches
+  // declared deps against the bundled CVE snapshot. Zero network calls.
+  const osvFiles = files.filter((f) => f.scanner === 'osv');
+  for (const file of osvFiles) {
+    try {
+      const out = scanManifest(file.path, file.content);
+      findings.push(...out);
+      filesScanned++;
+    } catch (err) {
+      warnings.push(`OSV scan error on ${file.path}: ${(err as Error).message}`);
+      filesSkipped++;
+    }
+    done.osv++;
+    onProgress({ ...done }, { ...total });
+  }
+
+  // ── Dockerfile scanner (pure regex library) ──────────────────────────────────
+  const dockerfileFiles = files.filter((f) => f.scanner === 'dockerfile');
+  for (const file of dockerfileFiles) {
+    try {
+      // Split logical lines: collapse `\<newline>` continuations.
+      const logical = file.content.replace(/\\\r?\n/g, ' ').split(/\r?\n/);
+      for (let i = 0; i < logical.length; i++) {
+        const line = logical[i];
+        for (const rule of DOCKERFILE_RULES) {
+          if (rule.matcher(line, i, logical)) {
+            findings.push({
+              file: file.path,
+              line: i + 1,
+              severity: rule.severity,
+              ruleId: rule.id,
+              message: rule.message,
+            });
+          }
+        }
+      }
+      filesScanned++;
+    } catch (err) {
+      warnings.push(`Dockerfile scan error on ${file.path}: ${(err as Error).message}`);
+      filesSkipped++;
+    }
+    done.dockerfile++;
+    onProgress({ ...done }, { ...total });
+  }
+
+  // ── YAML scanner (K8s + GH Actions, regex library with path filter) ──────────
+  const yamlFiles = files.filter((f) => f.scanner === 'yaml');
+  for (const file of yamlFiles) {
+    try {
+      for (const rule of YAML_RULES) {
+        // Some YAML rules only fire on specific paths (K8s manifests vs
+        // .github/workflows). Skip the rule if its pathMatches says no.
+        if (rule.pathMatches && !rule.pathMatches(file.path, file.content)) continue;
+        const hits = rule.match(file.content);
+        for (const hit of hits) {
+          findings.push({
+            file: file.path,
+            line: hit.line,
+            severity: rule.severity,
+            ruleId: rule.id,
+            message: rule.message,
+          });
+        }
+      }
+      filesScanned++;
+    } catch (err) {
+      warnings.push(`YAML scan error on ${file.path}: ${(err as Error).message}`);
+      filesSkipped++;
+    }
+    done.yaml++;
+    onProgress({ ...done }, { ...total });
+  }
+
+  // ── ast-grep scanner (V2.1) ──────────────────────────────────────────────────
+  // Java/Kotlin/Swift/Dart/C#/PHP/Go/Ruby/Bash files are matched and counted
+  // here so users see what gets recognized, but actual rule dispatch lives in
+  // the dedicated ast-grep worker — wired in a follow-up commit. The 147
+  // V2 ast-grep YAML rules + grammars are already on disk and ready to use.
+  const astGrepFiles = files.filter((f) => f.scanner === 'ast-grep');
+  for (const _file of astGrepFiles) {
+    done['ast-grep']++;
+    onProgress({ ...done }, { ...total });
+  }
+  if (astGrepFiles.length > 0) {
+    warnings.push(
+      `ast-grep: ${astGrepFiles.length} file(s) recognized but rules not yet dispatched (V2.1 — grammar+rules on disk, worker wire-up pending)`,
+    );
   }
 
   return {

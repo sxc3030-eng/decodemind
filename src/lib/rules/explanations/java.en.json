@@ -1,0 +1,102 @@
+{
+  "java-sqli-statement-concat": {
+    "problem": "Building a SQL query by concatenating strings with a variable embeds that variable directly into the query text sent to the database.",
+    "impact": "An attacker who controls any part of that variable can read, modify, or delete arbitrary data — full SQL injection, often leading to total database compromise.",
+    "fix": "Use a PreparedStatement with ? placeholders and pass parameters via setString / setInt / setLong. Never concatenate user input into a query string."
+  },
+  "java-sqli-prepared-concat": {
+    "problem": "Using prepareStatement defeats its own purpose when the SQL string is built by concatenation — the placeholder mechanism is bypassed because the variable is already baked into the SQL text.",
+    "impact": "Same as a raw Statement: SQL injection with full read/write access to the database.",
+    "fix": "Put ? in the SQL string for every variable and bind values with setString/setInt. Example: prepareStatement(\"SELECT * FROM users WHERE id = ?\") then ps.setInt(1, id)."
+  },
+  "java-deserialization-readobject": {
+    "problem": "ObjectInputStream.readObject() rebuilds arbitrary Java objects from a byte stream. If the stream comes from an untrusted source, attackers can craft payloads that execute code during deserialization via gadget chains.",
+    "impact": "Remote code execution on the JVM running the deserialization — typical entry point for many high-severity Java CVEs.",
+    "fix": "Avoid Java serialization for untrusted data — prefer JSON with a strict schema. If you must use it, install a serial filter via ObjectInputFilter (Java 9+) or jdk.serialFilter."
+  },
+  "java-xxe-documentbuilder": {
+    "problem": "DocumentBuilderFactory.newInstance() returns a parser that, by default, resolves external DTDs and entities. A malicious XML document can reference local files, internal URLs, or cause denial of service.",
+    "impact": "XML External Entity (XXE): file disclosure, server-side request forgery, denial of service.",
+    "fix": "Disable dangerous features right after newInstance(): setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true), setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true), setXIncludeAware(false), setExpandEntityReferences(false)."
+  },
+  "java-runtime-exec-user-input": {
+    "problem": "Runtime.getRuntime().exec called with a variable command runs whatever ends up in that variable. If any part is user-controlled, the attacker decides what process runs.",
+    "impact": "Arbitrary command execution on the server — full RCE.",
+    "fix": "Never build the command from user input. If the command itself is fixed, use the array form exec(new String[]{\"cmd\", arg1, arg2}) so arguments are not parsed by a shell. Prefer ProcessBuilder with a hard-coded executable and validated arguments."
+  },
+  "java-weak-crypto-md5": {
+    "problem": "MD5 has known practical collisions and is no longer considered safe for any security-sensitive use (signatures, password hashing, integrity over hostile data).",
+    "impact": "An attacker can forge messages or files that share the same MD5 hash as a legitimate one, bypassing integrity or authentication checks.",
+    "fix": "Use MessageDigest.getInstance(\"SHA-256\") or stronger. For password hashing, use a slow KDF: BCrypt, PBKDF2, Argon2, or scrypt — never a raw hash."
+  },
+  "java-weak-crypto-sha1": {
+    "problem": "SHA-1 is broken against collision attacks (SHAttered, 2017). It must not be used for digital signatures, certificate fingerprints, or any integrity check against an adversary.",
+    "impact": "Attackers can produce two different inputs that share the same SHA-1, bypassing signature or integrity verification.",
+    "fix": "Use SHA-256, SHA-384, or SHA-3 instead. For passwords, use BCrypt / Argon2 / PBKDF2."
+  },
+  "java-weak-cipher-des": {
+    "problem": "DES uses a 56-bit key, which can be brute-forced in hours on modern hardware. It is obsolete and should never be used for confidentiality.",
+    "impact": "Any data encrypted with DES can be recovered by an attacker with modest resources.",
+    "fix": "Use AES with a strong mode: Cipher.getInstance(\"AES/GCM/NoPadding\") with a 128- or 256-bit random key and a unique 12-byte IV per message."
+  },
+  "java-weak-cipher-ecb": {
+    "problem": "ECB encrypts each block independently, so identical plaintext blocks produce identical ciphertext blocks. Patterns in the plaintext leak through the ciphertext.",
+    "impact": "Attackers can detect repeated data, swap blocks between messages, or reconstruct parts of the plaintext.",
+    "fix": "Use an authenticated mode: AES/GCM/NoPadding with a unique IV per message. If you cannot use authenticated encryption, use AES/CBC/PKCS5Padding with a random IV plus a separate MAC (encrypt-then-MAC)."
+  },
+  "java-hardcoded-password": {
+    "problem": "A password, API key, or secret is written as a string literal in the source. Anyone with access to the repository, the compiled JAR, or a decompiler can read it.",
+    "impact": "Total compromise of the account or service that secret protects. Rotating it requires a redeploy.",
+    "fix": "Read secrets from environment variables, a configuration file outside the repo, or a secrets manager (HashiCorp Vault, AWS Secrets Manager, Spring Cloud Config with encrypted values)."
+  },
+  "java-jndi-lookup-user-input": {
+    "problem": "ctx.lookup() with a variable name lets the caller fetch arbitrary JNDI resources, including LDAP/RMI URLs that can return remote serialized objects executed by the JVM.",
+    "impact": "Remote code execution — same class of bug as Log4Shell (CVE-2021-44228).",
+    "fix": "Never pass user input to lookup(). Use a fixed string for the JNDI name. Patch Log4j to a non-vulnerable version. Set com.sun.jndi.ldap.object.trustURLCodebase=false and com.sun.jndi.rmi.object.trustURLCodebase=false."
+  },
+  "java-trust-all-x509": {
+    "problem": "An X509TrustManager with an empty checkServerTrusted accepts every certificate, including self-signed or expired ones, on every host.",
+    "impact": "TLS no longer provides authentication — any attacker on the network path can present their own certificate and intercept traffic (MITM).",
+    "fix": "Remove the custom TrustManager and use the JVM default (SSLContext.getDefault()). If you need to trust a private CA, install it in a custom KeyStore and pass that to TrustManagerFactory — never bypass validation entirely."
+  },
+  "java-spring-permitall": {
+    "problem": "Spring Security .permitAll() makes a route reachable without authentication. It is correct for /login and static assets, but very dangerous on admin or API endpoints.",
+    "impact": "Anyone on the internet can call the endpoint as if they were authenticated — full data exposure or destructive actions, depending on the route.",
+    "fix": "Use .authenticated() or .hasRole(\"ADMIN\") for protected routes. Reserve .permitAll() for clearly public assets, and review every occurrence on a real audit."
+  },
+  "java-printstacktrace-prod": {
+    "problem": "e.printStackTrace() writes the full stack trace to standard error. In production, traces often leak class names, file paths, library versions, and database structure.",
+    "impact": "Information disclosure that helps attackers fingerprint your stack and find exploitable libraries. Also unhelpful for operations because there is no log correlation.",
+    "fix": "Use a logger: log.error(\"context message\", e). For client-facing errors, return a generic message and an opaque request ID; log the details server-side."
+  },
+  "java-null-comparison-equals": {
+    "problem": "Calling .equals(null) on a reference that is itself null throws NullPointerException before the comparison is even evaluated.",
+    "impact": "Unexpected NPE at runtime — common cause of crashes in code that meant to ask 'is this value null?'.",
+    "fix": "Write the literal on the left: null == x; or use Objects.equals(x, null); or simply x == null."
+  },
+  "java-string-compare-eq": {
+    "problem": "In Java, == on String references compares identity, not content. It only happens to work for interned literals and breaks as soon as one side comes from input, a database, or new String(...).",
+    "impact": "Comparisons that look correct in tests start returning false in production, producing wrong control flow and silent bugs.",
+    "fix": "Use a.equals(b) or, safer against null on either side, Objects.equals(a, b). For null-tolerant constant comparisons, use \"literal\".equals(value)."
+  },
+  "java-resource-not-closed": {
+    "problem": "Opening a FileInputStream outside a try-with-resources block leaves the file handle open if any exception is thrown before close() is called.",
+    "impact": "File descriptors leak over time, eventually exhausting OS limits and breaking unrelated parts of the application.",
+    "fix": "Wrap the resource in try-with-resources: try (FileInputStream fis = new FileInputStream(path)) { ... } — the JVM closes it automatically, even on exception."
+  },
+  "java-empty-catch": {
+    "problem": "An empty catch block silently swallows an exception. The error is lost: nobody logs it, nobody handles it, control flow continues as if nothing happened.",
+    "impact": "Bugs become invisible. Failures that should stop or alert the system instead lead to silently corrupted state.",
+    "fix": "At minimum, log the exception: log.warn(\"context\", e). If recovery is intentional, leave a comment explaining why. Never just catch and pass."
+  },
+  "java-system-out-println-prod": {
+    "problem": "System.out.println bypasses your logging infrastructure: no log level, no timestamp, no correlation ID, no rotation, no structured output.",
+    "impact": "Useful operational signals are scattered and hard to query. In containerized environments they often vanish entirely.",
+    "fix": "Use SLF4J or java.util.logging: log.info(\"message\"), log.debug(...), etc. Configure the logger via your framework so output is structured, level-filtered, and aggregated."
+  },
+  "java-todo-comment": {
+    "problem": "TODO and FIXME comments mark deferred work directly in source. If they are not tracked elsewhere, they age silently and the original author often forgets.",
+    "impact": "Unresolved TODOs accumulate into invisible technical debt — some hide missing validations or security checks.",
+    "fix": "Either fix the issue now, or convert the TODO into a tracked ticket and reference its number in the comment (e.g. // TODO #123: ...). Delete TODOs that no longer apply."
+  }
+}
