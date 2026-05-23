@@ -1,0 +1,112 @@
+{
+  "php-echo-superglobal-xss": {
+    "problem": "You echo a value from $_GET, $_POST, $_REQUEST, or $_COOKIE directly into the page. PHP does not escape it, so any HTML or JavaScript an attacker puts in the URL or form is rendered as part of the page.",
+    "impact": "Reflected XSS: an attacker can steal session cookies, deface the page, or run actions in the user's browser as if they came from your site.",
+    "fix": "Wrap the value with htmlspecialchars($_GET['x'], ENT_QUOTES, 'UTF-8') before echoing, or use a templating engine (Twig, Blade) that auto-escapes."
+  },
+  "php-echo-interp-superglobal": {
+    "problem": "An echo string interpolates $_GET, $_POST, or another superglobal directly inside a double-quoted string. The raw user value is embedded into the HTML output without escaping.",
+    "impact": "Reflected XSS, same as a direct echo of the superglobal — attackers can inject script and take over user sessions.",
+    "fix": "Pull the value into a sanitized local variable first: $name = htmlspecialchars($_GET['name'], ENT_QUOTES, 'UTF-8'); echo \"Hello $name\";."
+  },
+  "php-eval-call": {
+    "problem": "eval() runs the string it receives as PHP source. If any part of that string can be influenced by an HTTP request, the user controls the code path the server executes.",
+    "impact": "Full remote code execution: read any file the PHP user can read, open outbound connections, drop a webshell.",
+    "fix": "Eliminate eval(). Use a real parser, a config file, or call_user_func() against a small allowlist of named callables."
+  },
+  "php-shell-exec-call": {
+    "problem": "shell_exec() runs its argument through the operating-system shell. Special characters in the argument (;, |, &&, backticks) are interpreted by the shell.",
+    "impact": "Command injection — an attacker can run arbitrary commands as the web server user and read or modify any file it can touch.",
+    "fix": "Avoid the shell. Use proc_open() with an argv array, or pass each argument through escapeshellarg() before concatenating."
+  },
+  "php-exec-call": {
+    "problem": "exec() executes a command through the shell. User-supplied content in the command string is parsed by the shell, not as a literal argument.",
+    "impact": "Command injection leading to remote code execution under the web server account.",
+    "fix": "Either drop shell execution entirely or wrap each variable argument with escapeshellarg(). Better: switch to proc_open() with an argv array."
+  },
+  "php-system-call": {
+    "problem": "system() runs a shell command and prints its output. A variable $CMD typically contains user-supplied data that the shell will parse.",
+    "impact": "Command injection: the attacker can read /etc, exfiltrate database credentials, or spawn a reverse shell.",
+    "fix": "Use proc_open() with separate arguments. If you must use system(), validate $CMD against a strict allowlist before the call."
+  },
+  "php-passthru-call": {
+    "problem": "passthru() runs a shell command and streams binary output to the browser. Any unescaped variable in the command line is interpreted by the shell.",
+    "impact": "Command injection on the server, with the added side-effect that response bodies become unpredictable.",
+    "fix": "Replace passthru() with proc_open() and read the process stdout in PHP. Validate every variable argument before use."
+  },
+  "php-include-variable": {
+    "problem": "include/require with a variable file path lets the caller pick which PHP file the server will execute. If the variable reaches the request, the attacker chooses the path.",
+    "impact": "Local File Inclusion (LFI) leading to source disclosure, log poisoning, or RCE. With allow_url_include enabled it becomes Remote File Inclusion.",
+    "fix": "Build a switch/whitelist that maps known IDs to fixed file paths. Never concatenate $_GET/$_POST into an include path."
+  },
+  "php-include-once-variable": {
+    "problem": "include_once/require_once with a variable file path has the same risk as include with a variable path — the include target is dynamic.",
+    "impact": "LFI/RFI: attacker can disclose source, execute arbitrary PHP files, or in some configurations include remote URLs.",
+    "fix": "Map user input to a fixed set of files via a switch or array lookup. Reject anything not in the allowlist."
+  },
+  "php-unserialize-call": {
+    "problem": "unserialize() reconstructs PHP objects from a string. Through magic methods (__wakeup, __destruct), specially crafted payloads can trigger code paths in any class the application has loaded.",
+    "impact": "Object-injection attacks leading to remote code execution, file deletion, or authentication bypass.",
+    "fix": "Use json_decode() / json_encode() for untrusted data. If unserialize() is unavoidable, pass the allowed_classes option restricting it to a tiny allowlist."
+  },
+  "php-mysqli-query-concat": {
+    "problem": "The SQL string is built by concatenating a variable. If $V comes from the request, the database parses attacker SQL as part of the query.",
+    "impact": "SQL injection: full read/write access to the database, including credential dumps, data tampering, and in some setups RCE via INTO OUTFILE.",
+    "fix": "Use prepared statements: $stmt = $conn->prepare('SELECT ... WHERE id = ?'); $stmt->bind_param('i', $id); $stmt->execute();."
+  },
+  "php-mysql-query-deprecated": {
+    "problem": "The legacy ext/mysql functions (mysql_query, mysql_connect, ...) were removed in PHP 7. They never offered real parameterized queries.",
+    "impact": "Code that runs on PHP 7+ will simply error out, and any SQL built around it is almost always concatenated and SQL-injectable.",
+    "fix": "Migrate to mysqli or PDO with prepared statements and bound parameters."
+  },
+  "php-weak-hash-md5": {
+    "problem": "md5() is fast and collision-broken. Using it for passwords or security tokens means a modern GPU can recover passwords in minutes from a stolen hash.",
+    "impact": "Stolen hashes are effectively cleartext passwords; reused passwords leak to other services.",
+    "fix": "For passwords use password_hash($pwd, PASSWORD_DEFAULT) and password_verify(). For tokens use random_bytes(32) and store the hex/base64. md5() is fine only for non-security checksums."
+  },
+  "php-weak-hash-sha1": {
+    "problem": "sha1() has documented collisions and is too fast to resist brute-force on a stolen password database.",
+    "impact": "Same risk as md5 when used for credentials: hashes are crackable, integrity checks can be forged.",
+    "fix": "Use password_hash() for passwords. For data integrity use hash('sha256', $data) or hash_hmac('sha256', $data, $key)."
+  },
+  "php-hardcoded-password": {
+    "problem": "A variable named like password / secret / apiKey / token is initialized with a literal string. Anyone with read access to the repo or the deployed file gets the credential.",
+    "impact": "Credential leak: the secret ends up in git history, container images, and developer machines. Rotating it requires a code change.",
+    "fix": "Read the value from getenv('API_KEY') or a secrets manager. Keep the literal only in .env files that are git-ignored."
+  },
+  "php-curl-ssl-verify-false": {
+    "problem": "Setting CURLOPT_SSL_VERIFYPEER to false disables the TLS certificate check. The cURL handle will accept any certificate, including self-signed or attacker-controlled ones.",
+    "impact": "Man-in-the-middle: anyone on the network path can intercept and modify the supposedly-secure request, stealing tokens or injecting responses.",
+    "fix": "Leave the option at its default (true). If a corporate CA is in use, point CURLOPT_CAINFO at the right bundle instead of disabling verification."
+  },
+  "php-error-reporting-display-prod": {
+    "problem": "ini_set('display_errors', '1') tells PHP to render warnings and stack traces in the HTTP response. In production this leaks file paths, library versions, and SQL fragments.",
+    "impact": "Information disclosure that helps attackers craft targeted exploits, and confusing UX for normal users.",
+    "fix": "Set display_errors to '0' in production and rely on log_errors / error_log() instead. Use a frontend that shows a generic 5xx page."
+  },
+  "php-empty-catch": {
+    "problem": "The catch block has no statements. The exception is silently discarded — no log entry, no rethrow, no fallback.",
+    "impact": "Bugs disappear: a failed payment looks successful, a missing file is treated like an empty one. Debugging future issues becomes guesswork.",
+    "fix": "Log the exception at minimum (error_log($e->getMessage())), then either rethrow or apply an explicit fallback. Never use catch as a way to suppress errors."
+  },
+  "php-loose-equality": {
+    "problem": "PHP's == operator performs type juggling: '0' == 'abc' is true on PHP 7, 0 == 'abc' was true before PHP 8, '1e2' == '100' is always true. Comparisons rarely match the developer's intuition.",
+    "impact": "Authentication bypasses (token == 0), wrong branches taken, hard-to-find logic bugs.",
+    "fix": "Use === and !== to compare both value and type. If you really need loose coercion, cast explicitly: (string)$a === (string)$b."
+  },
+  "php-todo-comment": {
+    "problem": "A TODO or FIXME comment is left in the source. It signals known incomplete work but has no owner or deadline attached.",
+    "impact": "The note rots in the codebase, new contributors assume the comment is current, and the underlying issue never gets fixed.",
+    "fix": "Open a ticket in the issue tracker with the context, link it from the comment, or just complete the work before merging."
+  },
+  "php-var-dump-prod": {
+    "problem": "var_dump() / print_r() write the contents of a variable directly to the response. Often a debugging leftover that ships with the release.",
+    "impact": "Leaks internal state — database rows, session data, config — to anyone who can hit the page, breaks page layout, and confuses users.",
+    "fix": "Remove debug calls before committing, or route them through error_log() / a proper debug logger guarded by an environment flag."
+  },
+  "php-file-get-contents-url": {
+    "problem": "file_get_contents() with a variable URL means the server fetches whatever address the caller chooses. If the variable reaches user input, the attacker controls the destination.",
+    "impact": "Server-Side Request Forgery (SSRF): the attacker can hit internal services (169.254.169.254, internal Redis, intranet admin pages) using your server's network credentials.",
+    "fix": "Parse the URL with parse_url(), enforce a scheme allowlist (https only), and validate the host against a domain allowlist before the request."
+  }
+}

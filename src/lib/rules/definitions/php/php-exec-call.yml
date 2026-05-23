@@ -1,0 +1,7 @@
+id: php-exec-call
+language: PHP
+category: security
+severity: error
+message: exec() runs a shell command — user-controlled input enables command injection
+rule:
+  pattern: exec($CMD)

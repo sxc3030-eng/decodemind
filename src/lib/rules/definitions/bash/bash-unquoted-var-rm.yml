@@ -1,0 +1,14 @@
+id: bash-unquoted-var-rm
+language: Bash
+category: bug
+severity: error
+message: rm -rf with an unquoted variable can word-split, treat values as flags, or expand to nothing — catastrophic deletions
+rule:
+  any:
+    - pattern: rm -rf $DIR
+    - pattern: rm -fr $DIR
+    - pattern: rm -r $DIR
+    - pattern: rm -rf $$$ARGS
+  constraints:
+    DIR:
+      regex: '^\$[A-Za-z_][A-Za-z0-9_]*$'

@@ -1,0 +1,67 @@
+{
+  "go-sql-query-concat": {
+    "problem": "Construire une requete SQL par concatenation de chaines colle directement une valeur externe dans le texte de la requete. La base ne sait plus distinguer le code des donnees.",
+    "impact": "Un attaquant peut injecter du SQL pour lire, modifier ou detruire des donnees, ou s'authentifier sous une autre identite.",
+    "fix": "Utilise des requetes parametrees : db.Query(\"SELECT * FROM users WHERE name = ?\", name) (ou $1, $2... avec database/sql + pq). Ne concatene jamais d'entree utilisateur dans du SQL."
+  },
+  "go-sql-exec-concat": {
+    "problem": "db.Exec execute du SQL qui modifie la base (INSERT, UPDATE, DELETE). Y concatener une entree utilisateur est aussi risque que de le faire dans un SELECT.",
+    "impact": "Un attaquant peut ecrire, supprimer des lignes, elever ses privileges ou detruire des tables.",
+    "fix": "Passe les valeurs en parametres lies : db.Exec(\"UPDATE users SET name = ? WHERE id = ?\", name, id)."
+  },
+  "go-exec-command-user-input": {
+    "problem": "exec.Command prend le binaire a lancer en premier argument. Si cet argument est une variable plutot qu'une chaine litterale, un attaquant peut potentiellement choisir le programme execute.",
+    "impact": "Execution arbitraire de commande sur le serveur, avec les privileges du processus.",
+    "fix": "Code en dur le binaire (exec.Command(\"/usr/bin/git\", args...)) et valide chaque argument. Ne laisse jamais une entree utilisateur choisir l'executable."
+  },
+  "go-http-handlefunc-no-auth": {
+    "problem": "Une route admin est enregistree via http.HandleFunc, mais l'authentification depend du handler lui-meme. C'est facile a oublier et facile a manquer en relecture.",
+    "impact": "Des utilisateurs non authentifies pourraient atteindre une fonctionnalite d'administration et lire ou modifier des donnees privilegiees.",
+    "fix": "Encapsule les handlers admin dans un middleware d'authentification (par ex. http.HandleFunc(\"/admin\", requireAdmin(handler))) pour que le controle soit uniforme."
+  },
+  "go-tls-insecureskipverify": {
+    "problem": "Mettre InsecureSkipVerify: true demande a Go de sauter completement la validation du certificat TLS. N'importe quel certificat est accepte, y compris un faux.",
+    "impact": "Un attaquant en man-in-the-middle peut intercepter et modifier tout le trafic vers cet endpoint, identifiants et tokens compris.",
+    "fix": "Retire InsecureSkipVerify. Si tu dois faire confiance a une CA personnalisee, charge-la dans tls.Config.RootCAs."
+  },
+  "go-weak-crypto-md5": {
+    "problem": "MD5 a des attaques de collision pratiques connues. Il n'est plus sur pour un usage sensible : integrite, signatures, hachage de mot de passe.",
+    "impact": "Un attaquant peut forger une donnee qui produit le meme MD5 qu'une donnee legitime, ce qui casse l'authentification ou l'integrite.",
+    "fix": "Utilise crypto/sha256 (sha256.Sum256) pour le hachage general, et bcrypt ou argon2 pour les mots de passe. MD5 ne convient que pour des checksums non securitaires."
+  },
+  "go-weak-crypto-sha1": {
+    "problem": "SHA-1 est casse cote resistance aux collisions. Deux entrees differentes peuvent etre fabriquees pour produire le meme hash.",
+    "impact": "Les signatures, certificats ou deduplications qui reposent sur SHA-1 peuvent etre forges ou confondus.",
+    "fix": "Utilise crypto/sha256 ou plus fort. Garde SHA-1 uniquement pour de la compatibilite legacy ou les collisions ne sont pas un probleme."
+  },
+  "go-weak-random": {
+    "problem": "math/rand est un generateur pseudo-aleatoire rapide, seed sur une valeur previsible. Il n'est pas concu pour resister a un attaquant qui observe les sorties.",
+    "impact": "Les tokens, identifiants de session ou secrets generes ainsi peuvent etre devines, ce qui permet le detournement de session ou la prediction de secrets.",
+    "fix": "Pour tout ce qui est securite, utilise crypto/rand (par ex. rand.Read(buf)). Reserve math/rand aux simulations et aux jeux."
+  },
+  "go-hardcoded-password": {
+    "problem": "Un mot de passe, secret ou cle d'API est ecrit directement dans le code source. Toute personne qui acces au depot (ou au binaire compile) peut le lire.",
+    "impact": "Une fuite de credential qui survit souvent au depart des employes et se retrouve dans chaque clone, fork et sauvegarde du depot.",
+    "fix": "Lis les secrets depuis une variable d'environnement, un fichier de config hors depot, ou un gestionnaire de secrets (Vault, AWS Secrets Manager, etc.)."
+  },
+  "go-http-redirect-user-input": {
+    "problem": "http.Redirect envoie l'utilisateur vers une URL prise dans une variable. Si cette URL vient de la requete (query string, formulaire), un attaquant peut rediriger les utilisateurs n'importe ou.",
+    "impact": "Vulnerabilite d'open redirect, utilisee dans le phishing et pour contourner d'autres controles comme la validation de callback OAuth.",
+    "fix": "Valide la destination contre une allowlist de chemins ou de hosts avant d'appeler http.Redirect."
+  },
+  "go-defer-unlock-without-lock": {
+    "problem": "Un defer mu.Unlock() apparait sans Lock() visible dans le meme scope. C'est une heuristique (faux positif possible), mais signale souvent un Lock oublie ou une erreur de copier-coller.",
+    "impact": "Appeler Unlock sur un mutex non locke panique a l'execution ; oublier le Lock laisse l'etat partage sans protection.",
+    "fix": "Apparie chaque defer Unlock a un Lock clair plus tot dans la meme fonction. Extrais les sections verrouillees dans de petits helpers pour rendre la paire evidente."
+  },
+  "go-fmt-println-prod": {
+    "problem": "fmt.Println ecrit sur stdout sans niveau de log, timestamp ni champ structure. C'est tres bien pour explorer, pas pour du code de production.",
+    "impact": "La sortie diagnostique ne peut etre ni filtree, ni redirigee, ni agregee ; les logs de production deviennent bruyants et difficiles a chercher.",
+    "fix": "Utilise le package log standard ou un logger structure (slog, zap, zerolog) avec des niveaux et des champs explicites."
+  },
+  "go-todo-comment": {
+    "problem": "Un commentaire TODO ou FIXME marque une tache inachevee a reprendre. Dans une base de code durable, ces marqueurs s'accumulent et sont rarement traites.",
+    "impact": "Bugs latents, fonctionnalites partielles et hypotheses perimees restent dans le code sans suivi.",
+    "fix": "Deplace le TODO vers un outil de suivi avec un proprietaire et une echeance, ou resous-le avant de merger."
+  }
+}

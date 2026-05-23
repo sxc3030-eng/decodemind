@@ -1,0 +1,9 @@
+id: java-empty-catch
+language: Java
+category: logic
+severity: warning
+message: Empty catch block silently swallows exceptions — log or rethrow to keep failures observable
+rule:
+  pattern: |
+    catch ($T $E) {
+    }

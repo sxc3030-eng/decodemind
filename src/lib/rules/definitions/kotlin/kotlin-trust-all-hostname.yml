@@ -1,0 +1,7 @@
+id: kotlin-trust-all-hostname
+language: Kotlin
+category: security
+severity: error
+message: HostnameVerifier that always returns true disables TLS hostname checks — enables MITM
+rule:
+  pattern: HostnameVerifier { _, _ -> true }

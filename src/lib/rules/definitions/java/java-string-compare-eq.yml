@@ -1,0 +1,7 @@
+id: java-string-compare-eq
+language: Java
+category: bug
+severity: warning
+message: Comparing String literals with == compares references, not content — use .equals() or Objects.equals()
+rule:
+  pattern: $A == "$B"

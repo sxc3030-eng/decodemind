@@ -1,0 +1,7 @@
+id: csharp-weak-crypto-sha1
+language: C#
+category: security
+severity: warning
+message: SHA1 is collision-vulnerable — prefer SHA-256 or SHA-3 for any security-sensitive hash
+rule:
+  pattern: SHA1.Create()

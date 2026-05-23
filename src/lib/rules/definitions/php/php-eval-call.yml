@@ -1,0 +1,7 @@
+id: php-eval-call
+language: PHP
+category: security
+severity: error
+message: eval() executes its argument as PHP code — never call with anything that touches user input
+rule:
+  pattern: eval($X)

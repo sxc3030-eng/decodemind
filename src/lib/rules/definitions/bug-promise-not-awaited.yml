@@ -1,0 +1,9 @@
+id: bug-promise-not-awaited
+language: TypeScript
+category: bug
+severity: warning
+message: Promise returned by async function is not handled
+rule:
+  pattern: $OBJ.$METHOD($$$ARGS)
+# TODO: Ideally detect standalone promise-returning calls whose result is discarded.
+# ast-grep cannot determine if a method is async without type info.

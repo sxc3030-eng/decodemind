@@ -1,0 +1,7 @@
+id: dart-late-without-init
+language: Dart
+category: bug
+severity: info
+message: late variable without initializer — accessing it before assignment throws LateInitializationError at runtime
+rule:
+  pattern: late $T $V;

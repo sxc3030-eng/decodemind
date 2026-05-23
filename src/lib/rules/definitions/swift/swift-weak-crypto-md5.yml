@@ -1,0 +1,7 @@
+id: swift-weak-crypto-md5
+language: Swift
+category: security
+severity: error
+message: MD5 is cryptographically broken — use SHA-256 from CryptoKit for hashing
+rule:
+  pattern: Insecure.MD5.hash($X)

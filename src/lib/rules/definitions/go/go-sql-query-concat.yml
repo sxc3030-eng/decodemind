@@ -1,0 +1,7 @@
+id: go-sql-query-concat
+language: Go
+category: security
+severity: error
+message: db.Query with concatenated SQL — classic SQL injection; use parameterized queries with placeholders ($1, ?)
+rule:
+  pattern: $DB.Query("SELECT " + $V)

@@ -1,0 +1,7 @@
+id: php-curl-ssl-verify-false
+language: PHP
+category: security
+severity: error
+message: CURLOPT_SSL_VERIFYPEER disabled — TLS man-in-the-middle is possible, leave verification on in production
+rule:
+  pattern: curl_setopt($CH, CURLOPT_SSL_VERIFYPEER, false)

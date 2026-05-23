@@ -1,0 +1,9 @@
+id: logic-unhandled-promise-rejection
+language: TypeScript
+category: logic
+severity: warning
+message: Promise without .catch() — silent rejection
+rule:
+  pattern: $OBJ.then($$$ARGS)
+# TODO: only flag .then() chains that do not have a .catch() chained immediately after.
+# Negative chaining is not expressible in a single ast-grep pattern.

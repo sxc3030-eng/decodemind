@@ -1,0 +1,302 @@
+{
+  "ws-auth-no-origin-check": {
+    "problem": "Votre serveur WebSocket accepte des connexions depuis n'importe quel site web. Un site malveillant peut se connecter en utilisant la session d'un utilisateur connecté à son insu.",
+    "impact": "Un attaquant peut détourner les sessions, lire des données privées ou effectuer des actions au nom de l'utilisateur.",
+    "fix": "Ajoutez une vérification de l'origine. Comparez request.headers.get('Origin') avec une liste blanche avant d'accepter la connexion."
+  },
+  "ws-auth-no-token": {
+    "problem": "Votre serveur WebSocket accepte toute connexion sans exiger de jeton d'authentification. Quiconque connaît l'adresse du serveur peut s'y connecter.",
+    "impact": "Des utilisateurs non autorisés peuvent lire les messages, injecter des données ou perturber le service.",
+    "fix": "Exigez un jeton dans l'URL de connexion ou dans le premier message, et validez-le avant de traiter les données."
+  },
+  "ws-auth-no-max-size": {
+    "problem": "Votre serveur WebSocket n'a pas de limite de taille de message. Un client peut envoyer un très grand message pour épuiser la mémoire du serveur.",
+    "impact": "Un seul client malveillant peut faire planter le serveur ou le rendre inaccessible pour tous.",
+    "fix": "Définissez max_size dans websockets.serve(), par exemple max_size=1_000_000 pour limiter les messages à 1 Mo."
+  },
+  "ws-auth-broadcast-no-auth": {
+    "problem": "Votre code envoie des messages à tous les clients connectés sans vérifier si chacun est autorisé à les recevoir.",
+    "impact": "Des messages sensibles peuvent être transmis à des utilisateurs non authentifiés ou non autorisés.",
+    "fix": "Maintenez un ensemble distinct de clients authentifiés et ne diffusez qu'à ceux-là."
+  },
+  "ws-auth-msg-not-validated": {
+    "problem": "Votre gestionnaire WebSocket traite les messages entrants sans vérifier leur taille ni leur format. Une entrée mal formée ou trop grande peut provoquer des erreurs.",
+    "impact": "Des attaquants peuvent envoyer des messages malformés pour déclencher des erreurs ou épuiser les ressources.",
+    "fix": "Vérifiez la longueur du message et validez son format (ex. schéma JSON) avant de le traiter."
+  },
+  "injection-shell-true": {
+    "problem": "Exécuter une commande avec shell=True signifie que le shell interprète l'intégralité de la chaîne de commande. Si une partie vient d'une entrée utilisateur, l'utilisateur peut injecter des commandes arbitraires.",
+    "impact": "Exécution de code à distance complète. Un attaquant peut lancer n'importe quelle commande sur le serveur.",
+    "fix": "Passez la commande sous forme de liste et supprimez shell=True. Exemple : subprocess.run(['ls', '-l', path])."
+  },
+  "injection-subprocess-shell-true": {
+    "problem": "subprocess.Popen avec shell=True présente le même risque que subprocess.run : une entrée utilisateur intégrée dans la commande peut être exploitée.",
+    "impact": "Exécution de code à distance complète sur le serveur.",
+    "fix": "Passez une liste d'arguments : subprocess.Popen(['cmd', 'arg1', arg2])."
+  },
+  "injection-os-system": {
+    "problem": "os.system() passe son argument directement au shell. Tout contenu contrôlé par l'utilisateur dans cet argument peut injecter des commandes arbitraires.",
+    "impact": "Un attaquant peut exécuter des commandes arbitraires sur le serveur.",
+    "fix": "Remplacez os.system() par subprocess.run() avec une liste d'arguments et sans shell=True."
+  },
+  "injection-eval": {
+    "problem": "eval() exécute la chaîne reçue en tant que code Python. Si cette chaîne contient du contenu fourni par l'utilisateur, celui-ci peut exécuter du code arbitraire.",
+    "impact": "Compromission complète du système — l'attaquant peut lire des fichiers, ouvrir des connexions réseau ou détruire des données.",
+    "fix": "Évitez complètement eval(). Utilisez un analyseur sécurisé ou limitez l'entrée à un ensemble connu de valeurs."
+  },
+  "injection-exec": {
+    "problem": "exec() est identique à eval() mais supporte aussi les blocs de code multi-instructions. Il exécute la chaîne donnée en tant que code Python.",
+    "impact": "Compromission complète du système — même risque qu'eval().",
+    "fix": "Évitez exec() entièrement. Si vous avez besoin de comportement dynamique, utilisez un DSL restreint ou un format de configuration."
+  },
+  "injection-path-traversal-open": {
+    "problem": "Ouvrir un fichier à un chemin incluant une variable peut permettre une traversée de chemin. Un attaquant peut passer '../../../etc/passwd' pour sortir du répertoire prévu.",
+    "impact": "Un attaquant peut lire ou écraser des fichiers arbitraires sur le système.",
+    "fix": "Utilisez pathlib.Path.resolve() et vérifiez que le chemin résolu commence bien par votre répertoire de base avant d'ouvrir le fichier."
+  },
+  "injection-sql-f-string": {
+    "problem": "Construire une requête SQL avec une f-string intègre des variables directement dans le texte. Si une variable contient de la syntaxe SQL, elle modifie la structure de la requête.",
+    "impact": "Un attaquant peut lire, modifier ou supprimer n'importe quelle donnée dans votre base, ou exécuter des commandes d'administration.",
+    "fix": "Utilisez des requêtes paramétrées : cursor.execute('SELECT ... WHERE id = %s', (user_id,))."
+  },
+  "injection-sql-concat": {
+    "problem": "Concaténer des chaînes pour construire une requête SQL est vulnérable à l'injection SQL pour la même raison que les f-strings : l'entrée utilisateur peut modifier la structure.",
+    "impact": "Compromission complète de la base de données — un attaquant peut exfiltrer, modifier ou détruire toutes les données.",
+    "fix": "Utilisez des requêtes paramétrées : cursor.execute('SELECT ... WHERE name = %s', (name,))."
+  },
+  "injection-js-eval": {
+    "problem": "eval() en JavaScript exécute son argument comme du code. Un contenu contrôlé par l'utilisateur passé à eval() donne à l'attaquant une exécution complète de scripts dans le contexte de la page.",
+    "impact": "XSS, vol de session, manipulation du DOM, exfiltration de cookies et jetons.",
+    "fix": "Ne passez jamais d'entrée utilisateur à eval(). Utilisez JSON.parse() pour les données ou repensez la logique qui nécessite eval()."
+  },
+  "injection-js-innerhtml": {
+    "problem": "Assigner une variable à innerHTML amène le navigateur à l'analyser comme du HTML et à exécuter les scripts intégrés. Si la variable contient une entrée utilisateur, c'est une faille XSS.",
+    "impact": "Un attaquant peut injecter des scripts qui volent les jetons de session, redirigent les utilisateurs ou défacent la page.",
+    "fix": "Utilisez textContent à la place d'innerHTML. Si vous devez insérer du HTML, assainissez l'entrée avec DOMPurify."
+  },
+  "crypto-md5": {
+    "problem": "MD5 est un algorithme de hachage cassé. Il est computationnellement faisable de trouver des collisions, et les attaques par préimage sont pratiques sur des entrées courtes.",
+    "impact": "Les hachages de mots de passe peuvent être cassés rapidement ; les checksums peuvent être falsifiés.",
+    "fix": "Utilisez hashlib.sha256() pour le hachage général. Pour les mots de passe, utilisez bcrypt, scrypt ou argon2."
+  },
+  "crypto-sha1": {
+    "problem": "SHA-1 est considéré comme faible. Des attaques par collision à préfixe choisi ont été démontrées et il est déprécié par le NIST.",
+    "impact": "Les signatures numériques et certificats utilisant SHA-1 peuvent être falsifiés.",
+    "fix": "Utilisez hashlib.sha256() ou hashlib.sha3_256() à la place."
+  },
+  "crypto-hardcoded-secret": {
+    "problem": "Une clé secrète, un jeton ou un mot de passe est codé en dur comme littéral de chaîne dans le code source. Quiconque accède au dépôt ou au binaire peut l'extraire.",
+    "impact": "Compromission totale du service ou du compte protégé par cette credential.",
+    "fix": "Déplacez les identifiants dans des variables d'environnement ou un gestionnaire de secrets (HashiCorp Vault, AWS Secrets Manager, fichiers .env exclus du contrôle de version)."
+  },
+  "crypto-weak-random": {
+    "problem": "random.random() utilise un Mersenne Twister qui n'est pas cryptographiquement sécurisé. Sa sortie peut être prédite à partir de quelques valeurs observées.",
+    "impact": "Les jetons, nonces et identifiants de session générés ainsi peuvent être devinés par un attaquant.",
+    "fix": "Utilisez le module secrets : secrets.token_hex(32) pour les jetons, secrets.randbelow(n) pour les entiers."
+  },
+  "crypto-pickle-load": {
+    "problem": "pickle.loads() peut exécuter du code Python arbitraire lors de la désérialisation. Il n'est pas sûr de désérialiser des données pickle provenant d'une source non fiable.",
+    "impact": "Exécution de code à distance — un attaquant peut créer un payload pickle pour exécuter n'importe quel code sur votre serveur.",
+    "fix": "Ne désérialisez jamais des données pickle provenant de sources non fiables. Utilisez JSON ou un format validé par schéma comme msgpack."
+  },
+  "crypto-yaml-load": {
+    "problem": "yaml.load() sans argument Loader peut instancier des objets Python arbitraires depuis le document YAML.",
+    "impact": "Exécution de code à distance si le YAML provient d'une entrée utilisateur ou d'un fichier non fiable.",
+    "fix": "Remplacez yaml.load(x) par yaml.safe_load(x), qui ne désérialise que les types Python de base."
+  },
+  "crypto-md5-js": {
+    "problem": "MD5 est un algorithme de hachage faible qui ne doit pas être utilisé à des fins de sécurité.",
+    "impact": "Les checksums peuvent être falsifiés ; toute intégrité de données ou authentification reposant sur MD5 est peu fiable.",
+    "fix": "Utilisez crypto.createHash('sha256') ou crypto.subtle.digest('SHA-256', ...) pour l'API Web Crypto."
+  },
+  "crypto-jwt-none-alg": {
+    "problem": "Autoriser l'algorithme 'none' dans la vérification JWT désactive complètement la vérification de signature. N'importe quel jeton sera accepté comme valide.",
+    "impact": "Un attaquant peut forger des jetons pour n'importe quel utilisateur, y compris les administrateurs, sans connaître aucun secret.",
+    "fix": "Supprimez 'none' du tableau algorithms. N'autorisez que l'algorithme spécifique avec lequel vos jetons sont signés, par ex. ['HS256']."
+  },
+  "xss-dangerously-set-html": {
+    "problem": "dangerouslySetInnerHTML demande à React d'injecter du HTML brut dans le DOM, contournant l'échappement automatique de React. Si la valeur contient une entrée utilisateur, des scripts peuvent être injectés.",
+    "impact": "XSS — un attaquant peut voler les cookies de session, rediriger les utilisateurs ou défacer la page.",
+    "fix": "Assainissez le HTML avec DOMPurify avant de le passer à dangerouslySetInnerHTML, ou restructurez le composant pour éviter l'injection de HTML brut."
+  },
+  "xss-document-write": {
+    "problem": "document.write() ajoute du contenu brut au document. Un contenu incluant une entrée utilisateur peut injecter des scripts.",
+    "impact": "XSS — même impact qu'une assignation innerHTML.",
+    "fix": "Utilisez des méthodes DOM comme createElement et appendChild, ou textContent pour le texte brut."
+  },
+  "xss-direct-innerhtml": {
+    "problem": "Assigner à innerHTML analyse la valeur comme du HTML et exécute les scripts intégrés. Toute valeur contrôlée par l'utilisateur est un risque XSS.",
+    "impact": "Injection de scripts, vol de session, défacement de page.",
+    "fix": "Utilisez textContent pour le texte brut. Assainissez avec DOMPurify si vous devez insérer du HTML."
+  },
+  "xss-href-javascript": {
+    "problem": "Définir href avec une URL javascript: amène le navigateur à exécuter du JavaScript au clic. Si l'URL provient d'une entrée utilisateur, c'est du XSS.",
+    "impact": "Exécution de code dans le contexte de la page au clic — vol de session ou actions malveillantes.",
+    "fix": "Validez toutes les valeurs href contre une liste blanche de protocoles (https:, mailto:) et rejetez les URL javascript:."
+  },
+  "xss-set-attribute-onevent": {
+    "problem": "Définir un attribut on* (onclick, onerror, etc.) via setAttribute injecte un gestionnaire d'événement. Si la valeur est contrôlée par l'utilisateur, c'est du XSS.",
+    "impact": "Exécution de script arbitraire déclenchée par une interaction utilisateur.",
+    "fix": "Utilisez addEventListener plutôt que setAttribute pour les gestionnaires d'événements. Ne définissez jamais d'attributs on* avec des valeurs contrôlées par l'utilisateur."
+  },
+  "llm-fake-pandas-method": {
+    "problem": "Cette méthode n'existe pas dans la bibliothèque pandas. Elle a probablement été suggérée par un assistant IA qui a halluciné un nom d'API plausible mais inexistant.",
+    "impact": "Le code lèvera une AttributeError à l'exécution.",
+    "fix": "Consultez la documentation officielle de pandas pour le nom et la signature corrects de la méthode."
+  },
+  "llm-fake-react-hook": {
+    "problem": "useFetch et useDebounce ne font pas partie de l'API principale de React. Ils sont fréquemment hallucités par les générateurs de code IA comme s'il s'agissait de hooks intégrés.",
+    "impact": "Le code échouera à l'exécution car ces hooks n'existent pas dans React.",
+    "fix": "Installez une bibliothèque qui les fournit (ex. react-use, usehooks-ts) ou implémentez-les vous-même. Consultez la documentation React pour la liste des hooks intégrés."
+  },
+  "bug-async-without-await": {
+    "problem": "Cette fonction async n'utilise jamais await, donc elle s'exécute de façon synchrone et le mot-clé async n'apporte aucun bénéfice.",
+    "impact": "La fonction retourne toujours une Promise que les appelants doivent gérer, mais le mot-clé async est trompeur et masque le flux d'exécution réel.",
+    "fix": "Supprimez le mot-clé async si la fonction n'a pas d'opérations asynchrones, ou ajoutez le await manquant devant l'appel asynchrone dans le corps de la fonction."
+  },
+  "bug-loose-equality": {
+    "problem": "L'opérateur == effectue une coercition de type, ce qui peut produire des résultats surprenants. Par exemple, 0 == false vaut true et '' == 0 vaut true.",
+    "impact": "Des bugs logiques où des valeurs qui devraient être différentes sont traitées comme égales, conduisant à des branches ou traitements incorrects.",
+    "fix": "Utilisez === (égalité stricte) à la place de ==. Il vérifie à la fois la valeur et le type sans coercition."
+  },
+  "bug-missing-await": {
+    "problem": "Une fonction async est appelée mais la Promise retournée est assignée sans await. La variable contient un objet Promise, pas la valeur résolue.",
+    "impact": "Vous travaillez avec une Promise au lieu des données attendues, causant des erreurs ou un comportement incorrect silencieux en aval.",
+    "fix": "Ajoutez await devant l'appel de la fonction async : const result = await maFonctionAsync()."
+  },
+  "bug-dict-get-no-default": {
+    "problem": "dict.get(key) renvoie None quand la clé est absente. Si l'appelant ne vérifie pas None, les opérations suivantes sur le résultat échoueront.",
+    "impact": "AttributeError ou TypeError à l'exécution quand le code essaie d'utiliser une valeur None comme un objet réel.",
+    "fix": "Fournissez une valeur par défaut : dict.get(key, valeur_par_defaut). Choisissez une valeur sensée (ex. 0, [], ou chaîne vide) ou gérez explicitement le cas None."
+  },
+  "bug-mutable-default-arg": {
+    "problem": "Les valeurs d'argument par défaut sont évaluées une seule fois à la définition de la fonction, pas à chaque appel. Un défaut mutable comme [] est partagé entre tous les appels.",
+    "impact": "Les mutations dans la fonction persistent entre les appels, causant des fuites d'état entre invocations non liées.",
+    "fix": "Utilisez None comme défaut et créez un nouvel objet mutable dans la fonction : def f(items=None): if items is None: items = []"
+  },
+  "bug-off-by-one-range": {
+    "problem": "range(1, len(arr)) saute l'index 0, donc le premier élément du tableau n'est jamais traité.",
+    "impact": "Le premier élément est silencieusement ignoré, ce qui peut produire des totaux incorrects, des validations manquées ou un traitement incomplet.",
+    "fix": "Utilisez range(len(arr)) pour commencer à l'index 0, ou range(0, len(arr)) pour être explicite."
+  },
+  "bug-unused-exception": {
+    "problem": "Un bare except: pass ou except Exception: pass avale silencieusement toutes les erreurs sans les journaliser ni les relever.",
+    "impact": "Les vraies erreurs sont cachées, rendant le débogage très difficile. Le programme continue dans un état potentiellement invalide.",
+    "fix": "Au minimum, journalisez l'exception : except Exception as e: logger.error(e). Relevez-la si vous ne pouvez pas la gérer correctement."
+  },
+  "bug-promise-not-awaited": {
+    "problem": "Une fonction retournant une Promise est appelée mais son résultat n'est pas awaité ni géré avec .then()/.catch(). La Promise s'exécute en arrière-plan sans moyen de réagir.",
+    "impact": "Les erreurs sont silencieusement ignorées et les effets secondaires de succès peuvent s'exécuter après que le code environnant est déjà terminé.",
+    "fix": "Ajoutez await devant l'appel dans un contexte async, ou chaînez .then() et .catch() pour gérer le résultat explicitement."
+  },
+  "bug-string-concat-int": {
+    "problem": "Ajouter une chaîne et un entier avec + lève une TypeError en Python. Python ne coerce pas automatiquement les types lors de la concaténation.",
+    "impact": "Le programme plante à l'exécution avec TypeError: can only concatenate str (not 'int') to str.",
+    "fix": "Convertissez explicitement l'entier en chaîne : str(num) + texte, ou utilisez une f-string : f'{texte}{num}'."
+  },
+  "bug-array-includes-NaN": {
+    "problem": "Array.prototype.includes() utilise la comparaison SameValueZero, donc [NaN].includes(NaN) renvoie true — mais Array.prototype.indexOf(NaN) renvoie toujours -1 car il utilise l'égalité stricte où NaN !== NaN.",
+    "impact": "Le code qui utilise indexOf pour chercher NaN ne le trouvera jamais, produisant des résultats incorrects silencieusement.",
+    "fix": "Utilisez Number.isNaN() pour vérifier NaN, ou utilisez Array.prototype.includes() à la place de indexOf quand vous cherchez NaN."
+  },
+  "bug-react-key-missing": {
+    "problem": "React exige que chaque élément d'une liste ait une prop key unique pour mettre à jour le DOM efficacement. Sans elle, React doit re-rendre les listes entières à chaque changement.",
+    "impact": "Re-rendus lents, état incorrect des composants après mise à jour de la liste, et avertissements dans la console React en développement.",
+    "fix": "Ajoutez une prop key unique à l'élément le plus externe retourné par map() : arr.map(item => <Component key={item.id} />)."
+  },
+  "bug-typeof-null-object": {
+    "problem": "En JavaScript, typeof null === 'object' est vrai, ce qui est un bug historique du langage. Vérifier typeof x === 'object' sans vérifier aussi x !== null traitera silencieusement null comme un objet.",
+    "impact": "Le code qui se base sur cette vérification pour confirmer l'existence d'un objet laissera passer null silencieusement, causant des erreurs plus tard lors de l'accès aux propriétés.",
+    "fix": "Ajoutez une vérification null explicite : typeof x === 'object' && x !== null. Mieux encore, utilisez une fonction type-guard dédiée."
+  },
+  "llm-deprecated-pandas-append": {
+    "problem": "DataFrame.append() a été supprimé dans pandas 2.0. Ce code a probablement été généré par un assistant IA entraîné sur une documentation pandas plus ancienne.",
+    "impact": "Le code lève une AttributeError à l'exécution sur pandas 2.0 et supérieur.",
+    "fix": "Remplacez df.append(other) par pd.concat([df, other], ignore_index=True)."
+  },
+  "llm-deprecated-react-lifecycle": {
+    "problem": "componentWillMount est déprécié depuis React 16.3 et supprimé dans React 18. Les générateurs de code IA le produisent fréquemment car il apparaît dans d'anciens tutoriels.",
+    "impact": "Le composant échouera en mode strict, et le code se cassera entièrement dans React 18.",
+    "fix": "Déplacez la logique d'initialisation dans componentDidMount ou, mieux, convertissez en composant fonctionnel avec useEffect."
+  },
+  "llm-fake-numpy-fast-dot": {
+    "problem": "np.fast_dot n'existe pas dans NumPy. Il a été halluciné par un assistant IA comme variante de performance plausible de np.dot.",
+    "impact": "AttributeError à l'exécution.",
+    "fix": "Utilisez np.dot(a, b) ou l'opérateur @ (a @ b) pour la multiplication matricielle."
+  },
+  "llm-fake-pandas-clean-csv": {
+    "problem": "df.to_clean_csv() n'existe pas dans pandas. Il a été halluciné par un assistant IA. La vraie méthode est to_csv() avec des options.",
+    "impact": "AttributeError à l'exécution.",
+    "fix": "Utilisez df.to_csv('file.csv', index=False) pour écrire un CSV propre sans la colonne d'index."
+  },
+  "logic-conditional-side-effect": {
+    "problem": "Une instruction avec effet de bord apparaît directement dans un if sans bloc. C'est fragile et peut indiquer des accolades manquantes ou une condition de garde accidentelle.",
+    "impact": "Refactoriser la condition ou ajouter une autre instruction peut silencieusement changer quel code est gardé par le if.",
+    "fix": "Utilisez toujours des accolades explicites pour les blocs if, même pour les corps à une seule instruction : if (cond) { instruction; }"
+  },
+  "logic-fetch-no-error-check": {
+    "problem": "fetch() ne lève pas d'exception sur les erreurs HTTP comme 404 ou 500 — il ne lève que sur les échecs réseau. Utiliser response.json() directement sans vérifier response.ok traite silencieusement les réponses d'erreur.",
+    "impact": "Votre code peut traiter le HTML d'une page d'erreur comme du JSON valide, causant des erreurs de parsing cryptiques ou des données incorrectes.",
+    "fix": "Vérifiez response.ok avant de consommer le corps : if (!response.ok) throw new Error(response.statusText); const data = await response.json();"
+  },
+  "logic-file-not-closed": {
+    "problem": "Ouvrir un fichier avec open() hors d'un with nécessite d'appeler .close() manuellement. Si une exception survient avant .close(), le descripteur de fichier fuit.",
+    "impact": "Des fuites de descripteurs de fichiers peuvent faire planter le programme avec des erreurs 'too many open files' sous charge.",
+    "fix": "Utilisez un with : with open(chemin) as f: ... — il garantit la fermeture du fichier même en cas d'exception."
+  },
+  "logic-json-parse-no-try": {
+    "problem": "JSON.parse() lève une SyntaxError si l'entrée n'est pas du JSON valide. Si l'appel n'est pas dans un try/catch, une réponse malformée fera planter l'application.",
+    "impact": "Une exception non gérée d'une seule mauvaise réponse API peut faire planter toute la page ou le service.",
+    "fix": "Enveloppez dans try/catch : try { const data = JSON.parse(text); } catch { /* gérer le JSON invalide */ }"
+  },
+  "logic-lock-without-unlock": {
+    "problem": "Appeler lock.acquire() sans bloc try/finally signifie que le verrou ne sera pas libéré si une exception est levée dans le code protégé.",
+    "impact": "Un interblocage (deadlock) se produira — les autres threads attendant le verrou se bloqueront indéfiniment.",
+    "fix": "Utilisez un with : with lock: ... — il acquiert et libère automatiquement, même en cas d'exception."
+  },
+  "logic-unhandled-promise-rejection": {
+    "problem": "Une chaîne .then() sans .catch() avalera silencieusement tout rejet. Dans Node.js, les rejets non gérés peuvent faire planter le processus dans les versions récentes.",
+    "impact": "Les erreurs sont cachées et l'application peut atteindre un état invalide sans indication de ce qui s'est passé.",
+    "fix": "Ajoutez toujours .catch(err => ...) aux chaînes de promesses, ou utilisez async/await avec try/catch."
+  },
+  "quality-any-type": {
+    "problem": "Le type any de TypeScript désactive toute vérification de type pour cette valeur. L'utiliser annule l'intérêt de TypeScript et rend le code aussi peu sûr que du JavaScript pur.",
+    "impact": "Les erreurs de type que TypeScript détecterait normalement à la compilation deviennent des plantages à l'exécution.",
+    "fix": "Remplacez any par le type spécifique, unknown (pour les données vraiment inconnues), ou un paramètre de type générique."
+  },
+  "quality-console-log-prod": {
+    "problem": "Des instructions console.log() laissées en code de production polluent la console du navigateur et peuvent exposer accidentellement des données sensibles aux utilisateurs.",
+    "impact": "Des informations sensibles (jetons, données utilisateur) peuvent fuiter vers la console. La console se remplit de bruit qui masque les vraies erreurs.",
+    "fix": "Supprimez console.log avant de commiter, ou remplacez par un logger structuré désactivable en production."
+  },
+  "quality-long-function": {
+    "problem": "Les fonctions qui s'étendent sur de nombreuses lignes sont plus difficiles à comprendre, tester et maintenir. Elles font souvent trop de choses à la fois.",
+    "impact": "Les bugs sont plus difficiles à trouver, les tests plus difficiles à écrire, et les changements dans une partie peuvent affecter d'autres parties inattendues.",
+    "fix": "Découpez en fonctions d'aide plus petites et ciblées. Visez des fonctions de moins de 40-50 lignes qui font chacune une seule chose."
+  },
+  "quality-magic-number": {
+    "problem": "Un littéral numérique sans signification évidente est intégré directement dans le code. Les futurs lecteurs ne peuvent pas savoir ce que représente le nombre ni pourquoi il a cette valeur.",
+    "impact": "La maintenance devient sujette aux erreurs : le même nombre magique peut être dupliqué, et le changer nécessite de trouver chaque occurrence.",
+    "fix": "Extrayez le nombre dans une constante nommée en haut du fichier : MAX_RETRIES = 3."
+  },
+  "quality-no-docstring": {
+    "problem": "Une fonction Python publique n'a pas de docstring pour expliquer ce qu'elle fait, quels paramètres elle accepte et ce qu'elle retourne.",
+    "impact": "Les autres développeurs (et les outils comme help() ou les IDE) ne peuvent pas comprendre le but de la fonction sans lire son implémentation.",
+    "fix": "Ajoutez une docstring juste après la ligne def : \"\"\"Description brève. Args: x: ... Returns: ...\"\"\""
+  },
+  "quality-no-jsdoc": {
+    "problem": "Une fonction TypeScript exportée n'a pas de commentaire JSDoc, son but, ses paramètres et sa valeur de retour ne sont donc pas documentés.",
+    "impact": "Les IDE ne peuvent pas afficher la documentation au survol, et les autres développeurs doivent lire l'implémentation pour comprendre comment utiliser la fonction.",
+    "fix": "Ajoutez un commentaire JSDoc au-dessus de la fonction : /** Description. @param name - ce qu'il fait. @returns ce qui revient. */"
+  },
+  "quality-todo-comment": {
+    "problem": "Un commentaire TODO marque un travail incomplet ou différé. S'il n'est pas suivi ailleurs, il peut ne jamais être résolu et vieillir en dette technique trompeuse.",
+    "impact": "Les TODO non résolus s'accumulent, rendant le code moins fiable. Ils peuvent indiquer des validations manquantes ou des fonctionnalités incomplètes.",
+    "fix": "Soit corrigez le problème maintenant, créez un ticket suivi et référencez-le dans le commentaire (TODO #123), soit supprimez le commentaire s'il n'est plus pertinent."
+  },
+  "quality-too-many-args": {
+    "problem": "Une fonction avec de nombreux arguments positionnels est difficile à appeler correctement — les appelants doivent mémoriser l'ordre et le sens exact de chaque argument.",
+    "impact": "Les arguments sont facilement passés dans le mauvais ordre, causant des bugs subtils difficiles à déboguer.",
+    "fix": "Regroupez les arguments liés dans un dataclass ou dict, ou utilisez des arguments keyword-only : def f(*, nom, valeur, ...)."
+  }
+}

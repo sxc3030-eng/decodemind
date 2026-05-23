@@ -1,0 +1,7 @@
+id: kotlin-weak-crypto-sha1
+language: Kotlin
+category: security
+severity: error
+message: SHA-1 is broken and deprecated — use SHA-256 or stronger
+rule:
+  pattern: MessageDigest.getInstance("SHA-1")

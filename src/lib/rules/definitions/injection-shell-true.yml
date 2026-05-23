@@ -1,0 +1,7 @@
+id: injection-shell-true
+language: Python
+category: security
+severity: error
+message: subprocess.run with shell=True enables shell injection — never pass user input here
+rule:
+  pattern: subprocess.run($CMD, shell=True)

@@ -1,0 +1,7 @@
+id: java-sqli-prepared-concat
+language: Java
+category: security
+severity: error
+message: prepareStatement built with concatenation defeats the purpose — use ? placeholders and bind values
+rule:
+  pattern: $CONN.prepareStatement("SELECT " + $V)

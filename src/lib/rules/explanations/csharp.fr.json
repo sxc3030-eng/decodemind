@@ -1,0 +1,82 @@
+{
+  "csharp-sqli-string-concat": {
+    "problem": "Vous construisez une commande SQL en concaténant une variable dans la chaîne de la requête. Si la variable provient de l'utilisateur, celui-ci peut modifier le sens du SQL.",
+    "impact": "Un attaquant peut lire, modifier ou supprimer n'importe quelle donnée de votre base, et dans de nombreux cas exécuter des commandes sur le serveur.",
+    "fix": "Utilisez une requête paramétrée : new SqlCommand(\"SELECT * FROM Users WHERE Id = @id\", conn) puis cmd.Parameters.AddWithValue(\"@id\", id)."
+  },
+  "csharp-sqli-interpolation": {
+    "problem": "Une chaîne interpolée ($\"...{valeur}...\") passée à SqlCommand insère la variable directement dans le SQL — c'est le même risque qu'une concaténation classique.",
+    "impact": "Injection SQL totale : vol, modification ou suppression de données selon les privilèges du compte applicatif.",
+    "fix": "Remplacez l'interpolation par un paramètre nommé et passez la valeur via Parameters.Add ou Parameters.AddWithValue."
+  },
+  "csharp-process-start-shell": {
+    "problem": "Process.Start reçoit une ligne de commande sous forme de variable. Si cette variable contient une entrée utilisateur, celui-ci peut ajouter des arguments ou enchaîner d'autres commandes.",
+    "impact": "Exécution de commandes à distance avec les privilèges du compte qui exécute votre application.",
+    "fix": "Créez un ProcessStartInfo, définissez FileName sur un exécutable fixe et ajoutez les arguments via ArgumentList. Ne passez jamais une seule chaîne concaténée."
+  },
+  "csharp-deserialize-binaryformatter": {
+    "problem": "BinaryFormatter.Deserialize fait confiance au flux d'entrée pour indiquer quels types .NET instancier. Des payloads spécialement conçus enchaînent des gadgets connus pour exécuter du code.",
+    "impact": "Exécution de code à distance. Microsoft a marqué BinaryFormatter comme obsolète et non sûr pour toute entrée non maîtrisée.",
+    "fix": "Passez à System.Text.Json ou à un sérialiseur basé sur un contrat (protobuf-net, MessagePack). Si vous devez garder un format binaire, utilisez un sérialiseur typé avec une liste blanche stricte de types."
+  },
+  "csharp-deserialize-soap": {
+    "problem": "SoapFormatter.Deserialize partage la conception non sûre de BinaryFormatter — il instancie n'importe quel type .NET indiqué dans le payload.",
+    "impact": "Exécution de code à distance sur le serveur.",
+    "fix": "Remplacez SoapFormatter par System.Text.Json ou par XmlSerializer lié à un type précis et connu."
+  },
+  "csharp-weak-crypto-md5": {
+    "problem": "MD5 est une fonction de hachage cassée : générer des collisions est trivial sur du matériel grand public.",
+    "impact": "Les signatures, empreintes ou contrôles d'intégrité basés sur MD5 peuvent être falsifiés. Les mots de passe hachés en MD5 sont quasiment en clair.",
+    "fix": "Utilisez SHA256.Create() pour les empreintes. Pour les mots de passe, utilisez un KDF lent comme Rfc2898DeriveBytes (PBKDF2) ou Argon2."
+  },
+  "csharp-weak-crypto-sha1": {
+    "problem": "SHA1 connaît des attaques par collision démontrées et est progressivement retiré de TLS, de la signature de code et du plan d'évolution de Git.",
+    "impact": "Toute signature ou tout schéma d'intégrité basé sur SHA1 peut être falsifié par un attaquant motivé.",
+    "fix": "Utilisez SHA256 ou SHA512 pour le hachage général, et un KDF (PBKDF2, Argon2, scrypt) pour les mots de passe."
+  },
+  "csharp-weak-cipher-des": {
+    "problem": "DES utilise une clé de 56 bits. Du matériel spécialisé, voire des GPU cloud, peuvent casser une clé DES en quelques heures.",
+    "impact": "Toute donnée chiffrée en DES doit être considérée comme lisible par n'importe quel attaquant qui capture le ciphertext.",
+    "fix": "Utilisez Aes.Create() avec une clé de 256 bits et un mode authentifié (AES-GCM), ou AES-CBC combiné à HMAC-SHA256."
+  },
+  "csharp-hardcoded-password": {
+    "problem": "Un mot de passe, un token ou une chaîne de connexion est inscrit en dur dans le code source. Toute personne ayant accès au dépôt — y compris les anciens contributeurs et les logs de CI — peut le lire.",
+    "impact": "Fuite directe de secret. Faire tourner ce secret oblige à le modifier partout où il apparaît et à le traquer dans l'historique Git.",
+    "fix": "Lisez les secrets depuis des variables d'environnement, le stockage user-secrets de .NET en développement, ou un coffre managé (Azure Key Vault, AWS Secrets Manager) en production."
+  },
+  "csharp-trust-all-cert": {
+    "problem": "Assigner ServicePointManager.ServerCertificateValidationCallback à une fonction qui retourne true (ou qui ne vérifie pas réellement la chaîne) demande à .NET d'accepter tous les certificats serveur.",
+    "impact": "Tout attaquant capable d'intercepter le réseau — Wi-Fi public, FAI hostile, proxy malveillant — peut lire et modifier votre trafic HTTPS.",
+    "fix": "Supprimez l'override. Si vous avez vraiment besoin d'accepter un certificat auto-signé pour un serveur précis, épinglez son empreinte et rejetez tous les autres dans le callback."
+  },
+  "csharp-xpath-injection": {
+    "problem": "SelectNodes reçoit une variable comme expression XPath. Si cette chaîne contient une entrée utilisateur, l'utilisateur peut changer les nœuds sélectionnés.",
+    "impact": "Contournement d'authentification sur des logins basés XML, divulgation de nœuds censés rester privés, ou déni de service via des expressions coûteuses.",
+    "fix": "Utilisez XPathExpression.Compile avec des variables paramétrées, ou validez strictement l'entrée utilisateur (liste blanche) avant de l'interpoler."
+  },
+  "csharp-html-raw-no-encode": {
+    "problem": "@Html.Raw insère son argument dans la page sans encodage HTML. L'encodage par défaut de Razor est la principale défense contre le XSS.",
+    "impact": "Si la valeur est influencée par l'utilisateur, l'attaquant peut injecter des balises script, des handlers d'événement ou des overlays stylés, et exécuter du JavaScript dans la session de la victime.",
+    "fix": "Affichez la valeur avec @valeur (encodage par défaut) ou utilisez un sanitiseur comme HtmlSanitizer si le contenu doit vraiment contenir du HTML."
+  },
+  "csharp-empty-catch": {
+    "problem": "Le bloc catch est vide. L'exception est attrapée puis immédiatement jetée — rien n'est journalisé, rien n'est relancé.",
+    "impact": "Les échecs deviennent invisibles. Le bug à l'origine de l'exception continue de se produire, mais personne ne le voit avant que les symptômes n'apparaissent ailleurs.",
+    "fix": "Au minimum, journalisez via ILogger avec l'objet exception. Si l'appelant ne peut pas récupérer, relancez avec throw; (pas throw ex;) pour préserver la stack trace."
+  },
+  "csharp-async-void": {
+    "problem": "Les méthodes déclarées async void ne peuvent pas être awaitées et les exceptions qu'elles lèvent s'échappent vers le contexte de synchronisation, où elles font généralement planter le processus.",
+    "impact": "Exceptions perdues, échecs non observables et crashs surprises — particulièrement en ASP.NET et dans les applications console.",
+    "fix": "Retournez Task plutôt que void : public async Task DoWorkAsync(...). Le seul usage légitime de async void est pour les handlers d'événements liés au framework."
+  },
+  "csharp-console-writeline-prod": {
+    "problem": "Console.WriteLine est utilisé pour émettre des informations de type log depuis du code applicatif. Cela contourne la journalisation structurée, les niveaux de log et le sink de logs de votre environnement d'hébergement.",
+    "impact": "Les logs ne sont pas recherchables, pas filtrés par sévérité, et peuvent ne pas apparaître du tout dans les déploiements conteneurisés ou hébergés en service.",
+    "fix": "Injectez ILogger<T> depuis Microsoft.Extensions.Logging et appelez _logger.LogInformation(...) / LogWarning(...) / LogError(...) à la place."
+  },
+  "csharp-todo-comment": {
+    "problem": "Un commentaire TODO ou FIXME est laissé dans le code. Il marque un travail que quelqu'un comptait faire plus tard — et le « plus tard » revient rarement de lui-même.",
+    "impact": "Dette technique cachée : hypothèses, cas limites manquants et bugs connus qui n'arrivent jamais jusqu'au backlog.",
+    "fix": "Terminez le travail maintenant, ou ouvrez un ticket et collez son identifiant dans le commentaire pour qu'il apparaisse dans votre backlog."
+  }
+}

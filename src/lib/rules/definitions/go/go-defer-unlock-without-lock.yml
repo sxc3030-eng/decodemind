@@ -1,0 +1,8 @@
+id: go-defer-unlock-without-lock
+language: Go
+category: bug
+severity: warning
+message: defer Unlock without a visible Lock in scope — heuristic; verify the mutex is actually held before deferring
+rule:
+  pattern: defer $MU.Unlock()
+# TODO: real detection needs surrounding-block analysis to confirm a matching Lock() call.

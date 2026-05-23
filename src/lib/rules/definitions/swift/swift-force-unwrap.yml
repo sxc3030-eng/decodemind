@@ -1,0 +1,7 @@
+id: swift-force-unwrap
+language: Swift
+category: bug
+severity: warning
+message: Force unwrap with ! — crashes the app if the value is nil; prefer optional binding or guard let
+rule:
+  pattern: $X!

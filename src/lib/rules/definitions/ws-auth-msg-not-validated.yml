@@ -1,0 +1,9 @@
+id: ws-auth-msg-not-validated
+language: Python
+category: security
+severity: warning
+message: WebSocket message passed to handler without size/schema validation
+rule:
+  pattern: |
+    async for $MSG in $WS:
+      $$$

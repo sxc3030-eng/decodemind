@@ -408,33 +408,46 @@ V1 caveat: backups are not git-aware; `.gitignore` should include `.decodemind-b
 
 ## 6. Phases & Scope
 
-### Phase 0 — Spike (1-2 days, before V1 sprint 1)
+### Phase 0 — Spike ✅ IMPLEMENTED (branch `phase-0`, 2026-05-18 → 2026-05-19)
 
-Before committing to the V1 timeline, run a **measurement spike** in a throwaway page:
-- Actual download size for Qwen 2.5 Coder 7B q4f16_1 on the author's machine
-- Cold-load time, first-token latency
-- Real performance of a batch of 8 finding translations
-- Verify ast-grep WASM bundle size + grammar lazy-load works as advertised
-- Confirm `@astral-sh/ruff-wasm-web` and `eslint-linter-browserify` integrate cleanly in a Vite project
+A measurement spike was implemented end-to-end. See `docs/superpowers/spike-results/2026-05-18-phase-0-findings.md` for results. The spike additionally surfaced lessons that revise V1 below.
 
-Output: revised performance budget for V1 based on data, not estimates. Without this spike, the V1 timeline is fiction.
+**What the spike verified:**
+- `@astral-sh/ruff-wasm-web` integrates cleanly (10.7 MB unpacked, ~3 MB Brotli, `S` security rules included). Real Diagnostic shape differs from the spec — uses `start_location` not `location`, `code: string | null`.
+- `eslint-linter-browserify` works as a runtime JS module (not WASM); needs `eslint` as devDep for proper types (currently `as never` cast).
+- `prettier/standalone` 3.x is async since 3.0; default plugin imports.
+- `@ast-grep/wasm` API differs significantly from the spec: real exports are `initializeTreeSitter` / `registerDynamicLanguage` / `parse`. Tree-sitter grammars must be served from `/tree-sitter-<lang>.wasm` (out-of-band setup needed).
+- `@mlc-ai/web-llm` 0.2.83 ships Qwen 2.5 Coder 1.5B/3B/7B in `prebuiltAppConfig`. **Translation timing not yet measured** — depends on the manual measurement run.
+
+**New constraints surfaced by the first real-folder scan (mamy):**
+- Vendored third-party code (whisper-cpp, ggml, llama-cpp) dominates findings if not ignored → ignore list must be **project-configurable**.
+- Auto-generated files (`# Auto-generated`, `# DO NOT EDIT`) are detectable by header heuristic → skip them by default.
+- Severity routing in the UI is critical: a flat findings list buries the 1 security finding under 50 line-length warnings. The "sectioned report" in section 5 is **non-negotiable** for V1.
 
 ### V1 — Polished MVP (after Phase 0)
 
 **Functional:**
 - Static site deployed on Cloudflare Pages
 - Folder selection via File System Access API (Chromium) + `<input webkitdirectory>` fallback
-- Four scanners in parallel: Ruff (WASM), ESLint + tsc (JS), ast-grep (WASM), Prettier + Stylelint
+- Four scanners in parallel: Ruff (WASM), ESLint + tsc (JS), ast-grep (WASM, with grammar pipeline), Prettier + Stylelint
 - Custom ast-grep rule library: ~80-150 rules at launch (seeded from NetGuardPro audit + LLM hallucination research)
 - Built-in plain-English description dictionary for ~200 top rules (degraded-mode fallback)
 - Qwen 2.5 Coder via WebLLM, tier-selected (1.5B default, 3B mid, 7B opt-in)
 - Translation cache in IndexedDB with `(ruleId, normalizedCode)` key
-- Sectioned report (Security / Bugs / Logic / Quality)
+- **Sectioned report** (Security / Bugs / Logic / Quality) with Quality collapsed by default — non-negotiable based on Phase 0 noise findings
 - L1 / L2 auto-fix with automatic timestamped backup
 - Export PDF / SARIF subset / Markdown
 - Settings (FR / EN, tier, cache, theme, strictness mode)
 - Degraded mode without WebGPU
 - Browser support: Chrome/Edge full; Safari/Firefox fallback with download-as-ZIP
+- **NEW from Phase 0**: project-configurable ignore patterns via `.decodemind-ignore` file (gitignore syntax) at scanned-folder root, merged with built-in vendored-lib defaults
+- **NEW from Phase 0**: auto-generated-file detection heuristic (skip files whose first 200 chars match known generator headers); user can opt out per scan
+- **NEW from Phase 0**: ast-grep tree-sitter grammar pipeline (Vite plugin to copy `tree-sitter-<lang>.wasm` from each language package's `node_modules/` to `public/` at build time)
+- **NEW from Phase 0**: "noise score" in scan summary — ratio of actionable (security + bugs + logic) to total findings; if < 10%, suggest ignore-list tuning
+- **NEW from Phase 0**: worker URLs use relative literals (NOT path aliases) — required for Vite production bundle to emit separate worker chunks
+- **NEW from Phase 0**: worker error/timeout/finally handling — `worker.onerror`, configurable timeout, `finally { worker.terminate() }` in every dispatch
+- **NEW from Phase 0**: switch `requestAdapterInfo()` → `adapter.info` getter (the former is deprecated in current WebGPU spec)
+- **NEW from Phase 0**: add `eslint` as devDep to drop the `as never` cast in the ESLint worker config
 
 **Non-functional (revised from measured data after Phase 0):**
 - Default tier (1.5B) scan of 10k-line project: ≤ 45 s on Intel i5 / 16 GB

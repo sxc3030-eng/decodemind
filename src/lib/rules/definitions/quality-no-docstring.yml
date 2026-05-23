@@ -1,0 +1,11 @@
+id: quality-no-docstring
+language: Python
+category: quality
+severity: info
+message: Public function without docstring
+rule:
+  pattern: |
+    def $FN($$$PARAMS):
+      $$$BODY
+# TODO: Cannot check absence of docstring (first statement being a string literal)
+# with a simple positive pattern. A negative-match rule would be needed.

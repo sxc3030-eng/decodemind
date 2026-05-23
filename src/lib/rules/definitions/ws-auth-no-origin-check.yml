@@ -1,0 +1,9 @@
+id: ws-auth-no-origin-check
+language: Python
+category: security
+severity: error
+message: WebSocket handler accepts connections without validating the Origin header — CSRF risk
+rule:
+  pattern: |
+    async def $HANDLER(websocket, $$$):
+      $$$BODY

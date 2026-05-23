@@ -1,0 +1,7 @@
+id: swift-force-try
+language: Swift
+category: bug
+severity: warning
+message: try! crashes on thrown errors — handle the error with do/catch or use try?
+rule:
+  pattern: try! $X

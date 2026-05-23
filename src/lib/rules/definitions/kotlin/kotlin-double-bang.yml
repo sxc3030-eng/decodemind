@@ -1,0 +1,7 @@
+id: kotlin-double-bang
+language: Kotlin
+category: bug
+severity: warning
+message: Double-bang (!!) throws NullPointerException if null — prefer ?.let, requireNotNull, or explicit handling
+rule:
+  pattern: $X!!

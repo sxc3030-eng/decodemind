@@ -1,0 +1,47 @@
+{
+  "bash-eval-call": {
+    "problem": "eval takes a string and runs it as a fresh shell command. Whatever ends up in that string — including content from a file, an environment variable, or a network response — is executed.",
+    "impact": "Anyone who can influence the string can run arbitrary commands as the user running the script. This is full local code execution.",
+    "fix": "Avoid eval. If you need to call a command stored in a variable, use an array: cmd=(ls -l); \"${cmd[@]}\". For dynamic dispatch, use a case statement against a known list of allowed actions."
+  },
+  "bash-curl-pipe-bash": {
+    "problem": "curl ... | bash downloads a script and runs it immediately. The shell trusts whatever bytes the server returns and runs them with your user's privileges.",
+    "impact": "If the server is compromised, hijacked, or simply MITM'd over plain HTTP, an attacker gets arbitrary code execution on the machine running the pipe.",
+    "fix": "Download the script first, verify its checksum or signature, then execute it: curl -fsSL https://example.com/install.sh -o install.sh && sha256sum -c install.sh.sha256 && bash install.sh."
+  },
+  "bash-unquoted-var-rm": {
+    "problem": "rm -rf $DIR splits the variable on whitespace, expands glob characters, and may expand to nothing at all if the variable is empty. If $DIR is empty, the command becomes rm -rf (no target); if it contains spaces, multiple paths are deleted; if it starts with a dash, it is parsed as a flag.",
+    "impact": "Mass deletion of unintended files, or in the worst case rm -rf / when the variable is empty. Very common cause of catastrophic data loss in CI scripts.",
+    "fix": "Always quote: rm -rf -- \"$DIR\". The -- prevents dashes in $DIR from being parsed as flags, and the double quotes prevent word-splitting and globbing."
+  },
+  "bash-sudo-no-password": {
+    "problem": "sudo -n runs sudo non-interactively — it will fail rather than prompt for a password. This pattern is typically used because a passwordless sudoers entry exists for the user.",
+    "impact": "If the script or any program it calls can be tampered with, an attacker can escalate to root without needing a credential. The blast radius of any compromise increases significantly.",
+    "fix": "Drop the passwordless sudo entry from /etc/sudoers.d and require interactive authentication, or narrow the sudoers rule to a single fixed command path (Cmnd_Alias) rather than a wildcard."
+  },
+  "bash-hardcoded-password": {
+    "problem": "A password, API key, or token is written directly as a literal in the script. The credential lives in git history forever and is visible to anyone who can read the repository.",
+    "impact": "Credential leak. Anyone with read access to the repo, a backup, or a build log can use the secret to access the protected resource.",
+    "fix": "Load secrets from environment variables that are populated outside the repo (export PASSWORD=$(cat /run/secrets/db)), or fetch them at runtime from a secrets manager (Vault, AWS Secrets Manager, sops, etc.)."
+  },
+  "bash-chmod-777": {
+    "problem": "chmod 777 grants read, write, and execute to owner, group, and everyone else. Any process on the host — including a compromised low-privilege account — can modify or replace the file.",
+    "impact": "An attacker who gets any shell on the machine can backdoor the file. If the file is a script or binary that root runs, this is a privilege escalation path.",
+    "fix": "Grant the minimum needed. For files only the owner edits: chmod 600. For files the owner writes and others read: chmod 644. For executables: chmod 755. Reserve 777 for ephemeral debug only."
+  },
+  "bash-wget-no-https": {
+    "problem": "Downloading over http:// (no TLS) means anyone on the network path between the script and the server can read or modify the response. This includes ISPs, wifi hotspot operators, and anyone who tampers with DNS.",
+    "impact": "An attacker can replace the downloaded file with a malicious version. If the script later executes the file or trusts its contents, the attacker controls what runs.",
+    "fix": "Switch to https://. If the server does not support TLS, host the artifact somewhere that does (e.g. a CDN), and verify a sha256 checksum after download."
+  },
+  "bash-test-string-no-quotes": {
+    "problem": "Inside [ ... ], unquoted variables are word-split and glob-expanded. If $X is empty, the test becomes [ = $Y ] which is a syntax error; if $X contains spaces, it is split into multiple tokens.",
+    "impact": "The script crashes on empty input or produces wrong results on input containing whitespace. In conditional logic this often takes the wrong branch silently.",
+    "fix": "Always double-quote variables inside [ ... ]: if [ \"$X\" = \"$Y\" ]. Or use the [[ ... ]] form, which does not split or glob: if [[ $X = $Y ]]."
+  },
+  "bash-todo-comment": {
+    "problem": "A TODO or FIXME marker indicates known incomplete or buggy code. Once it sits in the script, it stops being visible to reviewers and is rarely addressed.",
+    "impact": "Latent bugs and missing functionality stay hidden behind a comment that everyone has learned to skim past.",
+    "fix": "Move each TODO/FIXME into your issue tracker with concrete context, link to the issue from the code if a marker is still needed, and remove markers that are no longer relevant."
+  }
+}

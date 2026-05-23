@@ -1,0 +1,7 @@
+id: crypto-yaml-load
+language: Python
+category: security
+severity: error
+message: yaml.load() without SafeLoader can execute arbitrary Python code — use yaml.safe_load() instead
+rule:
+  pattern: yaml.load($X)

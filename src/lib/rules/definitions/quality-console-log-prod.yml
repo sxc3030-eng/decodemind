@@ -1,0 +1,7 @@
+id: quality-console-log-prod
+language: JavaScript
+category: quality
+severity: info
+message: console.log left in code — remove before production
+rule:
+  pattern: console.log($$$ARGS)

@@ -1,0 +1,7 @@
+id: swift-fatalError-prod
+language: Swift
+category: logic
+severity: warning
+message: fatalError() will crash the app at runtime — only acceptable for truly unreachable code paths
+rule:
+  pattern: fatalError($MSG)

@@ -1,0 +1,12 @@
+id: bug-async-without-await
+language: JavaScript
+category: bug
+severity: warning
+message: async function has no await — likely missed await
+rule:
+  pattern: |
+    async function $FN($$$PARAMS) {
+      $$$BODY
+    }
+# TODO: Cannot statically confirm there is no await in BODY with a simple pattern.
+# This matches all async functions; a post-filter checking absence of await is needed.

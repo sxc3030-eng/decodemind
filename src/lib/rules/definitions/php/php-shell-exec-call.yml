@@ -1,0 +1,7 @@
+id: php-shell-exec-call
+language: PHP
+category: security
+severity: error
+message: shell_exec() runs a shell command — user-controlled $CMD allows arbitrary command execution
+rule:
+  pattern: shell_exec($CMD)

@@ -1,0 +1,9 @@
+id: quality-too-many-args
+language: Python
+category: quality
+severity: info
+message: Function takes many positional args — use keyword args or a dict
+rule:
+  pattern: def $FN($A, $B, $C, $D, $E, $$$REST)
+# TODO: This flags functions with 5+ positional params as approximation.
+# A stricter rule would count only non-self, non-kwargs parameters.

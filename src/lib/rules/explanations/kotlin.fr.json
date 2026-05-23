@@ -1,0 +1,112 @@
+{
+  "kotlin-shared-prefs-mode-world": {
+    "problem": "Ouvrir SharedPreferences avec MODE_WORLD_READABLE rend le fichier lisible par toutes les autres applications installées sur l'appareil. Ce mode est déprécié pour cette raison mais on le retrouve encore dans du code ancien.",
+    "impact": "Une application malveillante peut lire vos données enregistrées — paramètres, identifiants, et même des identifiants de connexion s'ils y sont stockés.",
+    "fix": "Utilisez Context.MODE_PRIVATE. Pour les valeurs sensibles, utilisez EncryptedSharedPreferences du module androidx.security:security-crypto."
+  },
+  "kotlin-shared-prefs-mode-world-writable": {
+    "problem": "MODE_WORLD_WRITABLE autorise toute autre application sur l'appareil à modifier votre fichier de préférences. Ce mode est déprécié mais on le retrouve dans les applications héritées.",
+    "impact": "Une application malveillante peut corrompre vos données, modifier le comportement de l'application, ou élever ses privilèges si votre code fait confiance à ces valeurs.",
+    "fix": "Utilisez Context.MODE_PRIVATE. Si vous avez besoin de partager des données entre applications, utilisez un ContentProvider correctement protégé par des permissions."
+  },
+  "kotlin-shared-prefs-plaintext-password": {
+    "problem": "Vous stockez un mot de passe sous forme de chaîne en clair dans SharedPreferences. Le fichier XML sous-jacent reste dans le sandbox de l'application mais il est trivialement lisible sur un appareil rooté ou via une sauvegarde.",
+    "impact": "Les identifiants fuient dès que l'appareil est sauvegardé, rooté, ou analysé par un malware ciblant votre paquet.",
+    "fix": "Utilisez androidx.security.crypto.EncryptedSharedPreferences, ou stockez un jeton adossé au Keystore Android au lieu d'un mot de passe brut."
+  },
+  "kotlin-shared-prefs-plaintext-token": {
+    "problem": "Les jetons d'authentification stockés dans SharedPreferences en clair sont lisibles par quiconque a accès au répertoire de données de l'application (root, sauvegardes, outils d'analyse forensique).",
+    "impact": "Un jeton volé donne à l'attaquant la session de l'utilisateur sur votre backend jusqu'à expiration ou révocation.",
+    "fix": "Utilisez EncryptedSharedPreferences, ou stockez le jeton chiffré avec une clé conservée dans le Keystore Android."
+  },
+  "kotlin-webview-js-enabled": {
+    "problem": "Activer JavaScript sur un WebView permet aux pages distantes d'exécuter des scripts dans le contexte du WebView de votre application. Combiné à addJavascriptInterface ou à l'accès aux fichiers, cela devient une surface d'attaque.",
+    "impact": "Des pages compromises ou contrôlées par un attaquant peuvent appeler les interfaces JS exposées, exfiltrer les données de session, ou pivoter vers le code natif.",
+    "fix": "N'activez JS que lorsque vous contrôlez le contenu chargé. Ne chargez jamais d'URL non fiables dans un WebView avec JS activé, et évitez addJavascriptInterface sur Android < 17."
+  },
+  "kotlin-webview-file-access": {
+    "problem": "allowFileAccess = true permet au WebView de charger des URLs file://. Si vous chargez aussi du contenu distant ou acceptez des URLs fournies par l'utilisateur, la page peut naviguer vers des fichiers locaux.",
+    "impact": "Un attaquant peut lire des fichiers arbitraires dans le sandbox de votre application en enchaînant une URL malveillante.",
+    "fix": "Mettez allowFileAccess = false (valeur par défaut depuis l'API 30) et servez les ressources locales via WebViewAssetLoader."
+  },
+  "kotlin-webview-universal-access": {
+    "problem": "allowUniversalAccessFromFileURLs permet à une page file:// de faire des requêtes XHR/fetch vers n'importe quelle origine, contournant complètement la politique de même origine (same-origin policy).",
+    "impact": "Si un fichier HTML local est accessible par un attaquant (téléchargements, exports), il peut voler les données de toute origine web sur laquelle l'utilisateur est connecté.",
+    "fix": "Laissez ce paramètre à sa valeur par défaut (false). Ne l'activez jamais sur un WebView qui charge du contenu non fiable."
+  },
+  "kotlin-http-cleartext": {
+    "problem": "Une URL http:// en clair apparaît dans le code source. Le trafic vers ce point d'accès n'est pas chiffré et reste visible sur le chemin réseau.",
+    "impact": "Les attaquants sur le même Wi-Fi ou en amont du réseau peuvent lire et modifier les données — identifiants, jetons, réponses d'API.",
+    "fix": "Utilisez https:// et configurez la Network Security Config pour interdire le clair (cleartextTrafficPermitted=\"false\")."
+  },
+  "kotlin-hardcoded-api-key": {
+    "problem": "Une clé API est déclarée comme const val directement dans le code source. L'APK est un simple zip — n'importe qui peut le décompiler et lire la constante.",
+    "impact": "N'importe qui peut extraire la clé, appeler vos API sur votre compte, épuiser vos quotas, ou faire grimper votre facture.",
+    "fix": "Sortez la clé du code : lisez-la depuis un local.properties ignoré par git via BuildConfig, depuis un backend, ou utilisez un proxy côté serveur pour l'appel d'API."
+  },
+  "kotlin-hardcoded-secret": {
+    "problem": "Une constante SECRET est intégrée au code source. Décompiler l'APK la révèle instantanément — l'obfuscation ne cache pas les chaînes littérales à un attaquant déterminé.",
+    "impact": "Les clés de signature, clés de chiffrement, ou secrets partagés fuient vers quiconque télécharge l'application.",
+    "fix": "Ne livrez jamais de secrets dans l'APK. Utilisez BuildConfig pour les valeurs de build qui ne sont pas réellement secrètes, et un backend ou le Keystore Android pour les vrais secrets."
+  },
+  "kotlin-runtime-exec": {
+    "problem": "Runtime.getRuntime().exec exécute une commande shell. Si une partie de la chaîne de commande provient d'une entrée utilisateur, un attaquant peut injecter des commandes supplémentaires.",
+    "impact": "Exécution arbitraire de commandes dans le sandbox de votre application — lecture de fichiers, appels réseau, abus des permissions accordées.",
+    "fix": "Évitez exec sur Android. Si vous avez vraiment besoin d'un sous-processus, passez un tableau d'arguments et n'interpolez jamais de valeurs contrôlées par l'utilisateur."
+  },
+  "kotlin-weak-crypto-md5": {
+    "problem": "MD5 est cassé cryptographiquement : les collisions sont peu coûteuses à calculer. Il n'est pas sûr pour les signatures, le hachage de mots de passe, ou les vérifications d'intégrité.",
+    "impact": "Un attaquant peut forger des données qui produisent le même hash, contournant les vérifications d'intégrité ou d'authentification basées sur MD5.",
+    "fix": "Utilisez SHA-256 ou plus fort pour le hachage général. Pour le hachage de mots de passe, utilisez BCrypt, Scrypt, ou Argon2 — jamais un hash brut."
+  },
+  "kotlin-weak-crypto-sha1": {
+    "problem": "SHA-1 est déprécié par le NIST et cassé en pratique — des attaques par collision ont été démontrées. Il n'est pas sûr pour les nouvelles signatures ou vérifications d'intégrité.",
+    "impact": "Les attaquants peuvent fabriquer des collisions pour contourner les vérifications de signature ou usurper des données légitimes.",
+    "fix": "Utilisez SHA-256 ou SHA-3 pour le hachage, et HMAC-SHA256 pour l'authentification de messages."
+  },
+  "kotlin-pending-intent-flag-mutable": {
+    "problem": "Un PendingIntent créé avec FLAG_MUTABLE peut être modifié par le composant système qui le reçoit. Sur Android 12+, la mutabilité doit être explicite à cause d'abus passés.",
+    "impact": "D'autres applications ou composants système peuvent altérer l'Intent pour le rediriger, modifier ses extras, ou le déclencher sur des cibles non prévues.",
+    "fix": "Utilisez FLAG_IMMUTABLE sauf si vous avez besoin spécifiquement d'un PendingIntent mutable (par exemple pour une réponse inline). Combinez avec FLAG_UPDATE_CURRENT selon les besoins."
+  },
+  "kotlin-log-sensitive": {
+    "problem": "Log.d (ou similaire) imprime un message qui mentionne password, token, ou secret. Les logs Android sont lisibles via adb et se retrouvent dans les rapports de crash, les diagnostics constructeur, et les bug reports.",
+    "impact": "Les valeurs sensibles fuient vers quiconque peut récupérer les logs — y compris les outils de support et les services partagés de rapport de crash.",
+    "fix": "Ne journalisez jamais d'identifiants ou de jetons. Si vous devez signaler une présence, journalisez seulement un marqueur fixe (« token présent ») ou un préfixe de hash non réversible."
+  },
+  "kotlin-trust-all-hostname": {
+    "problem": "Un HostnameVerifier qui retourne toujours true indique à TLS de ne pas vérifier que le certificat du serveur correspond au nom d'hôte de l'URL.",
+    "impact": "Quiconque peut présenter un certificat valide quelconque peut usurper votre backend — man-in-the-middle complet, vol d'identifiants et de données.",
+    "fix": "Retirez le verifier personnalisé. Si vous avez besoin d'une CA personnalisée, configurez la Network Security Config ; pour le pinning, utilisez OkHttp CertificatePinner."
+  },
+  "kotlin-double-bang": {
+    "problem": "L'opérateur !! force une valeur nullable à non-nulle et lève une NullPointerException à l'exécution si la valeur est null.",
+    "impact": "Crashes en production dès que la valeur est null de manière inattendue — annule les garanties de null-safety de Kotlin.",
+    "fix": "Utilisez ?.let { ... }, requireNotNull(x) { « raison » } avec un message clair, ou une vérification de null explicite avec un chemin de repli."
+  },
+  "kotlin-empty-catch": {
+    "problem": "Le bloc catch est vide — les exceptions sont attrapées et silencieusement ignorées.",
+    "impact": "Les vrais bugs deviennent invisibles. Échecs réseau, erreurs d'E/S, et exceptions de sécurité disparaissent sans laisser de trace, rendant l'application plus difficile à déboguer et plus facile à exploiter.",
+    "fix": "Au minimum, journalisez l'exception (Log.w(TAG, « ... », e)). Mieux : gérez les types d'exception spécifiques que vous attendez et laissez le reste se propager."
+  },
+  "kotlin-runblocking-on-main": {
+    "problem": "runBlocking bloque le thread appelant jusqu'à la fin de la coroutine. Appelé sur le thread principal, il gèle l'UI ; un blocage prolongé déclenche une boîte de dialogue ANR (Application Not Responding).",
+    "impact": "UI saccadée, crashes ANR, et mauvaises notes sur le store. Le travail en arrière-plan qui devrait être asynchrone devient un blocage net.",
+    "fix": "Lancez une coroutine dans le scope approprié (lifecycleScope, viewModelScope) avec le bon dispatcher (Dispatchers.IO/Default) au lieu de runBlocking."
+  },
+  "kotlin-println-prod": {
+    "problem": "println écrit dans System.out, qui sur Android atterrit dans logcat mais ne peut pas être filtré par tag ni facilement retiré des builds release.",
+    "impact": "Logs bruyants en production, aucun moyen de filtrer par niveau de log, et fuites possibles de données de debug dans les APK livrés.",
+    "fix": "Utilisez Timber (Timber.d(« ... »)) ou android.util.Log avec un tag. Configurez ProGuard/R8 pour retirer les appels Log des builds release."
+  },
+  "kotlin-todo-fn-call": {
+    "problem": "La fonction intégrée TODO() de Kotlin lève une NotImplementedError à l'exécution. La laisser dans un chemin de code livré garantit un crash pour tout utilisateur qui l'atteint.",
+    "impact": "Crash dur pour les utilisateurs finaux — et contrairement à un commentaire, le compilateur ne vous avertit pas qu'il est toujours présent.",
+    "fix": "Implémentez la branche manquante, ou remplacez TODO() par une erreur explicite que vous comptez livrer (et placez-la derrière un feature flag si nécessaire)."
+  },
+  "kotlin-intent-getextra-no-check": {
+    "problem": "intent.getStringExtra retourne des données fournies par une autre application ou un autre composant — c'est une entrée externe totalement non fiable. L'utiliser sans vérification de null ni de validité ouvre la porte aux bugs et aux abus.",
+    "impact": "NullPointerExceptions, crashes liés à des entrées malformées, et dans certains cas des failles de sécurité (path traversal, injection de deep link) si la valeur sert à construire des URL ou des chemins de fichier.",
+    "fix": "Vérifiez toujours le null, validez la longueur et le format, et restreignez à une liste autorisée si possible. Traitez les extras comme toute autre entrée non fiable."
+  }
+}

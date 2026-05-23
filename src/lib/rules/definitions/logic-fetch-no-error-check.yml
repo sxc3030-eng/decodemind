@@ -1,0 +1,11 @@
+id: logic-fetch-no-error-check
+language: TypeScript
+category: logic
+severity: warning
+message: fetch() result used without checking response.ok
+rule:
+  pattern: |
+    const $RES = await fetch($$$)
+    const $DATA = await $RES.json()
+# TODO: This catches the most common pattern. Cannot easily detect all paths
+# where response.ok is never checked before consuming body.

@@ -1,0 +1,7 @@
+id: kotlin-hardcoded-api-key
+language: Kotlin
+category: security
+severity: error
+message: Hardcoded API key in source — extract to BuildConfig from a gitignored properties file or secret manager
+rule:
+  pattern: const val API_KEY = $V

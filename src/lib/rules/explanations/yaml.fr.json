@@ -1,0 +1,87 @@
+{
+  "yaml-k8s-privileged-true": {
+    "problem": "Le conteneur est configuré avec securityContext.privileged: true. Un conteneur privilégié dispose de presque toutes les capacités du noyau hôte — il peut monter les systèmes de fichiers de l'hôte, charger des modules noyau et accéder à tous les périphériques.",
+    "impact": "N'importe qui pouvant exécuter du code dans le conteneur peut trivialement s'évader vers l'hôte et prendre le contrôle du nœud. De là, un attaquant peut pivoter à travers le cluster, lire les secrets des autres pods et manipuler le kubelet.",
+    "fix": "Mettez privileged: false (ou supprimez le champ). Si une capacité Linux spécifique est nécessaire, accordez uniquement celle-ci via securityContext.capabilities.add."
+  },
+  "yaml-k8s-runasuser-root": {
+    "problem": "Le conteneur est configuré pour s'exécuter en UID 0 (root) à l'intérieur du conteneur. Même sans privileged: true, root dans un conteneur dispose de trop de droits et rend les failles d'évasion bien plus faciles à exploiter.",
+    "impact": "Une compromission de l'application devient un accès root dans le conteneur, à une seule CVE de distance d'un root sur l'hôte.",
+    "fix": "Définissez runAsUser sur un UID non nul (par ex. 1000) et assurez-vous que le système de fichiers de l'image est lisible par cet UID. Combinez avec runAsNonRoot: true pour forcer la vérification à l'admission."
+  },
+  "yaml-k8s-runasnonroot-false": {
+    "problem": "runAsNonRoot: false désactive explicitement la vérification du kubelet qui refuse de démarrer un conteneur en UID 0.",
+    "impact": "Même si l'utilisateur par défaut de votre image est root, plus aucun garde-fou ne l'empêchera. Vous perdez une couche de défense en profondeur gratuite.",
+    "fix": "Mettez runAsNonRoot: true au niveau du pod ou du conteneur et choisissez un runAsUser non nul. Si un outil doit vraiment tourner en root, faites-le dans un initContainer et abandonnez les privilèges avant d'exec le processus principal."
+  },
+  "yaml-k8s-host-network": {
+    "problem": "hostNetwork: true fait partager au pod l'espace de noms réseau du nœud. Le pod peut se lier aux ports de l'hôte, voir tout le trafic de l'hôte et atteindre des services autrement coupés des pods par pare-feu.",
+    "impact": "Une compromission du pod donne à l'attaquant l'identité réseau du nœud, lui permet de capturer le trafic et contourne complètement les NetworkPolicies.",
+    "fix": "Utilisez un Service ClusterIP / NodePort / LoadBalancer à la place. Seuls les DaemonSets d'infrastructure légitimes (agents CNI, kube-proxy) devraient activer hostNetwork: true."
+  },
+  "yaml-k8s-host-pid": {
+    "problem": "hostPID: true place le pod dans l'espace de noms PID de l'hôte. Il peut lister, signaler et tracer chaque processus du nœud, y compris le kubelet et les autres pods.",
+    "impact": "Tout code s'exécutant dans le pod peut lire les variables d'environnement et lignes de commande des autres processus — là où se trouvent souvent les secrets — et peut envoyer des signaux pour les tuer.",
+    "fix": "Retirez hostPID (la valeur par défaut est false). Si vous devez vraiment inspecter les processus de l'hôte, utilisez un DaemonSet de debug avec un RBAC strict, pas une charge de travail normale."
+  },
+  "yaml-k8s-host-ipc": {
+    "problem": "hostIPC: true partage l'espace de noms IPC de l'hôte (mémoire partagée System V, sémaphores, files de messages) avec le pod.",
+    "impact": "Les fuites d'information entre pods et vers l'hôte deviennent triviales. Les attaquants peuvent lire la mémoire partagée utilisée par d'autres charges de travail sur le même nœud.",
+    "fix": "Retirez hostIPC. Les pods n'en ont presque jamais besoin — les rares qui en ont vraiment besoin devraient être isolés sur des nœuds dédiés."
+  },
+  "yaml-k8s-allowprivilegeescalation-true": {
+    "problem": "allowPrivilegeEscalation: true permet à un processus d'obtenir plus de privilèges que son parent (par ex. via des binaires setuid ou des capabilities de fichier).",
+    "impact": "Un processus non-root peut devenir root dans le conteneur en exécutant un binaire setuid, ce qui défait votre défense runAsNonRoot.",
+    "fix": "Mettez allowPrivilegeEscalation: false. Combinez avec runAsNonRoot: true et un système de fichiers racine en lecture seule pour une vraie défense en profondeur."
+  },
+  "yaml-k8s-readonlyrootfs-false": {
+    "problem": "readOnlyRootFilesystem: false (ou non défini) signifie que le conteneur peut écrire n'importe où sur son système de fichiers.",
+    "impact": "Un attaquant qui obtient l'exécution de code peut déposer du malware, altérer la configuration sur disque ou persister à travers les redémarrages. Cela masque aussi les bugs où l'application écrit où elle ne devrait pas.",
+    "fix": "Mettez readOnlyRootFilesystem: true et montez des volumes emptyDir aux endroits où l'application écrit légitimement (par ex. /tmp, /var/run)."
+  },
+  "yaml-k8s-capabilities-add-all": {
+    "problem": "capabilities.add inclut ALL — cela accorde toutes les capacités Linux au conteneur, ce qui est essentiellement équivalent à privileged: true.",
+    "impact": "Une compromission complète de l'hôte n'est qu'à une CVE d'évasion de conteneur. Le bounding set des capabilities du noyau ne vous protège plus du tout.",
+    "fix": "Retirez tout avec capabilities.drop: [ALL] et ajoutez uniquement les capacités spécifiques dont vous avez besoin (par ex. NET_BIND_SERVICE pour binder un port < 1024)."
+  },
+  "yaml-k8s-no-resources-limits": {
+    "problem": "Cette charge de travail définit des conteneurs mais aucun resources.limits. Sans limites, un seul pod buggé ou hostile peut consommer tout le CPU/mémoire du nœud.",
+    "impact": "Incidents de voisin bruyant, OOM-kills de charges de travail sans rapport, et déni de service trivial sur le cluster. Sans limite mémoire, la classe QoS de Kubernetes tombe à BestEffort, faisant de votre pod le premier à être évincé sous pression.",
+    "fix": "Définissez resources.requests et resources.limits pour chaque conteneur. Partez des requests observés en monitoring et fixez les limits à environ 1,5–2× cette valeur, puis ajustez."
+  },
+  "yaml-k8s-image-tag-latest": {
+    "problem": "La référence d'image utilise :latest ou aucun tag du tout, ce que Kubernetes traite comme :latest.",
+    "impact": "Deux pods du même Deployment peuvent récupérer deux versions d'image différentes si l'amont change entre les ordonnancements. Les rollbacks deviennent impossibles, les audits deviennent des suppositions, et les attaques de supply-chain (re-tag d'une image populaire) vous touchent immédiatement.",
+    "fix": "Épinglez à un tag spécifique, ou mieux encore à un digest immuable : image: nginx@sha256:.... La CI devrait échouer si elle voit :latest."
+  },
+  "yaml-k8s-imagepullpolicy-always-with-tag": {
+    "problem": "imagePullPolicy: Always combiné à un tag explicite non-latest force un pull du registre à chaque redémarrage de pod, alors que le tag est censé être immuable.",
+    "impact": "Redémarrages plus lents, plus de trafic vers le registre et — pire — si le tag est jamais re-pointé en amont, vous récupérez silencieusement une image différente. Le défaut IfNotPresent est presque toujours correct pour des tags épinglés.",
+    "fix": "Retirez imagePullPolicy (défaut IfNotPresent) pour les tags épinglés. Utilisez Always uniquement avec des tags mutables comme :latest ou :main."
+  },
+  "yaml-gha-pull-request-target-with-checkout": {
+    "problem": "Le workflow se déclenche sur pull_request_target (qui s'exécute dans le contexte du dépôt de base, avec tous les secrets) puis fait un checkout du code de la PR. N'importe qui peut ouvrir une PR avec du code malveillant ; le workflow exécute alors ce code contrôlé par l'attaquant avec accès à vos secrets.",
+    "impact": "Compromission totale des secrets du dépôt et de tous les identifiants cloud accessibles au workflow. C'est la mauvaise configuration GitHub Actions la plus exploitée.",
+    "fix": "Utilisez pull_request (qui s'exécute sans secrets) pour tout ce qui doit faire un checkout du code de PR. Si vous devez utiliser pull_request_target, ne faites PAS de checkout du head de la PR — checkoutez uniquement la branche de base et traitez le diff de la PR comme de la donnée."
+  },
+  "yaml-gha-third-party-no-sha-pin": {
+    "problem": "Une action tierce est référencée par tag ou branche (par ex. @v2, @main) plutôt que par SHA de commit de 40 caractères. Les tags et branches Git sont mutables — l'auteur de l'action (ou quiconque le compromet) peut re-pointer le tag vers du code malveillant.",
+    "impact": "Une compromission supply-chain de l'action signifie que votre workflow exécute du code attaquant avec les permissions du GITHUB_TOKEN et tous les secrets que vous lui passez. Des incidents passés ont fait fuiter des milliers de jetons de cette façon.",
+    "fix": "Épinglez à un SHA complet : uses: someorg/action@<sha-40-car>. Des outils comme dependabot ou pinact peuvent les maintenir à jour de manière sûre."
+  },
+  "yaml-gha-secret-in-env-name": {
+    "problem": "Une variable d'environnement dont le nom ressemble à un secret (TOKEN, KEY, SECRET, PASSWORD, API_KEY) reçoit une chaîne littérale plutôt qu'une référence ${{ secrets.X }}.",
+    "impact": "Le secret est committé dans le dépôt en clair — tout le monde avec un accès en lecture (et toute personne qui clone le dépôt, pour toujours) peut le voir. Une fois fuité, il doit être réinitialisé.",
+    "fix": "Déplacez la valeur dans les secrets du dépôt ou de l'organisation, puis référencez-la : TOKEN: ${{ secrets.MY_TOKEN }}. Si la valeur a déjà été committée, réinitialisez-la immédiatement — l'historique git est éternel."
+  },
+  "yaml-gha-permissions-write-all": {
+    "problem": "permissions: write-all accorde au GITHUB_TOKEN du workflow toutes les permissions disponibles sur le dépôt.",
+    "impact": "Si une étape est compromise (injection de script, dépendance malveillante, action non fiable), l'attaquant hérite d'un jeton pouvant pousser sur n'importe quelle branche, créer des releases, modifier des issues, changer les paramètres, et plus encore.",
+    "fix": "Partez de permissions: { contents: read } au niveau du workflow et accordez uniquement les scopes spécifiques dont chaque job a besoin. Traitez les permissions larges en écriture comme vous traiteriez sudo."
+  },
+  "yaml-gha-script-with-untrusted-context": {
+    "problem": "Un script run: interpole directement un champ github.event qu'un contributeur externe contrôle (titre/corps d'issue ou de PR, commentaire). Le shell voit le texte de l'attaquant comme du code, pas comme de la donnée.",
+    "impact": "Quiconque peut ouvrir une issue ou une PR sur votre dépôt peut exécuter des commandes shell arbitraires dans votre runner de workflow avec accès au GITHUB_TOKEN. C'est une primitive d'exécution de code à distance contre votre CI.",
+    "fix": "N'inlinez jamais ${{ github.event.* }} dans un script. Passez la valeur via une variable d'environnement : env: { TITLE: ${{ github.event.issue.title }} }, puis référencez $TITLE dans le script — le shell la traitera comme une chaîne."
+  }
+}

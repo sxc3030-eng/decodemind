@@ -1,0 +1,97 @@
+{
+  "swift-ats-allow-arbitrary-loads": {
+    "problem": "NSAllowsArbitraryLoads disables App Transport Security entirely. Your app can then make plaintext HTTP requests, and TLS misconfigurations on remote servers are accepted without complaint.",
+    "impact": "Network traffic can be read or modified on hostile networks (public Wi-Fi, hotel proxies). Apple App Store review also flags this and may reject the binary.",
+    "fix": "Remove NSAllowsArbitraryLoads. If a specific domain truly requires HTTP, declare a narrow exception in NSExceptionDomains with the smallest possible scope."
+  },
+  "swift-http-cleartext-url": {
+    "problem": "URL(string: \"http://...\") creates an unencrypted endpoint. ATS will block the request on iOS 9+, and even when it works, the data is visible to anyone on the same network.",
+    "impact": "Credentials, tokens, and personal data sent over this URL can be intercepted or tampered with.",
+    "fix": "Switch the URL to https://. If the server does not support TLS, fix the server — do not weaken the client."
+  },
+  "swift-userdefaults-secret": {
+    "problem": "UserDefaults stores values in a plist file inside the app sandbox in plaintext. On a jailbroken device or via iTunes/Files backup, anyone with access to that file can read the secret.",
+    "impact": "Authentication tokens, passwords, and API keys are exposed across reboots and accessible to forensic tools.",
+    "fix": "Use the Keychain Services API (SecItemAdd / KeychainSwift / SwiftKeychainWrapper) with an appropriate kSecAttrAccessible value."
+  },
+  "swift-hardcoded-api-key": {
+    "problem": "Embedding a long string secret in source code means the value ends up in the compiled binary. `strings YourApp` or any disassembler will recover it in seconds.",
+    "impact": "Anyone who downloads your app from the App Store can extract the secret and reuse it from outside your app.",
+    "fix": "Load the secret from a server-issued token after authentication, or store it in the Keychain after a one-time setup. For build-time config, use xcconfig files excluded from the repository."
+  },
+  "swift-weak-crypto-md5": {
+    "problem": "MD5 is broken for any security purpose — collisions can be produced in seconds on commodity hardware.",
+    "impact": "Signatures, integrity checks, and password hashes built on MD5 can be forged or precomputed by attackers.",
+    "fix": "Use SHA-256 from CryptoKit (SHA256.hash(data:)) for integrity, and Argon2/bcrypt/scrypt or PBKDF2 for password hashing."
+  },
+  "swift-weak-crypto-sha1": {
+    "problem": "SHA-1 collisions have been publicly demonstrated. It must not be used for digital signatures, certificates, or any tamper-evident purpose.",
+    "impact": "An attacker can craft two different inputs that share the same SHA-1 hash, defeating integrity checks.",
+    "fix": "Use SHA-256 (or SHA-512) from CryptoKit. For HMAC, use HMAC<SHA256> from CryptoKit."
+  },
+  "swift-keychain-no-access-control": {
+    "problem": "SecItemAdd called without kSecAttrAccessControl means the Keychain item uses default access — typically accessible whenever the device is unlocked, with no biometric or device-passcode requirement.",
+    "impact": "If the device is unlocked and handed to someone (or compromised by another app exploiting an OS bug), the secret can be read without further authentication.",
+    "fix": "Add a kSecAttrAccessControl with SecAccessControlCreateWithFlags using .userPresence, .biometryCurrentSet, or .devicePasscode depending on your threat model."
+  },
+  "swift-webview-js-enabled": {
+    "problem": "Enabling JavaScript on a WKWebView is only safe if every URL ever loaded is under your control. If untrusted HTML or a redirect can reach this view, JS becomes an XSS surface.",
+    "impact": "An attacker controlling the loaded content can call native bridges, read DOM data, or pivot to other origins via redirects.",
+    "fix": "Disable JS unless required (configuration.defaultWebpagePreferences.allowsContentJavaScript = false), and restrict loads to a fixed allowlist of trusted origins."
+  },
+  "swift-webview-load-untrusted-html": {
+    "problem": "loadHTMLString with baseURL: nil renders the HTML as if it were a local file. Any <script> in $STR runs in your app's web context with no Same-Origin Policy enforcement.",
+    "impact": "If $STR includes user input, you have stored XSS inside your own app, which can call JS bridges and exfiltrate data.",
+    "fix": "HTML-escape user input before injecting it into the string, or render markdown/text in native UIKit/SwiftUI views instead of a webview."
+  },
+  "swift-eval-via-nsexpression": {
+    "problem": "NSExpression parses and evaluates the format string at runtime, including function calls and arithmetic. If the format contains anything user-controlled, the user can run code.",
+    "impact": "Attackers can invoke arbitrary selectors, leading to crashes or, with clever use of FUNCTION(), real code execution.",
+    "fix": "Never build the format string from user input. Use a small custom parser, or compute the value in Swift code directly."
+  },
+  "swift-trust-all-cert": {
+    "problem": "Calling completionHandler(.useCredential, URLCredential(trust: trust)) in didReceive challenge accepts the server certificate regardless of validity. This neuters TLS.",
+    "impact": "Any network adversary (corporate proxy, café Wi-Fi, hostile router) can intercept and modify HTTPS traffic.",
+    "fix": "Either let the system do default validation (call completionHandler(.performDefaultHandling, nil)) or pin the certificate/public key explicitly with SecTrustEvaluateWithError."
+  },
+  "swift-print-sensitive": {
+    "problem": "print() writes to the unified system log without privacy redaction. Anything you print is visible in Console.app while the device is connected to a Mac.",
+    "impact": "Tokens, user IDs, or PII printed during debugging may stay in production builds and leak via device logs.",
+    "fix": "Use os.Logger with privacy modifiers — logger.info(\"user \\(id, privacy: .private)\") — and gate verbose logs behind #if DEBUG."
+  },
+  "swift-runtime-shell-exec": {
+    "problem": "Process().arguments accepts an array of strings sent to a subprocess. If any element is built from user input without strict validation, the user can change which program runs or pass arbitrary flags.",
+    "impact": "Command injection on macOS-side tooling — leads to code execution as the current user.",
+    "fix": "Validate every argument against an allowlist before passing it, and never pass user input as the executable path."
+  },
+  "swift-deeplink-no-validation": {
+    "problem": "The application(_:open:options:) handler receives a URL but the body never inspects url.scheme or url.host. Any app on the device can open your scheme and trigger any code path you wire up.",
+    "impact": "A malicious app can craft a deep link to log the user out, transfer state, or open privileged screens.",
+    "fix": "Check url.scheme matches your registered scheme and url.host matches an expected route, reject otherwise. Treat URL parameters as untrusted input."
+  },
+  "swift-force-unwrap": {
+    "problem": "The postfix ! operator unwraps an Optional and crashes the process if the value is nil. Crashes from force-unwraps are one of the most common causes of iOS app crashes.",
+    "impact": "A nil value produces an EXC_BREAKPOINT and an immediate crash visible to the user.",
+    "fix": "Use `if let` / `guard let`, the `??` nil-coalescing operator, or optional chaining. Reserve ! for values that are provably non-nil by construction."
+  },
+  "swift-force-try": {
+    "problem": "try! ignores the do/catch contract and crashes the process if the call throws.",
+    "impact": "Any thrown error — including ones a user can trigger (bad file, network issue) — becomes a hard crash.",
+    "fix": "Wrap the call in do/catch and handle the error, or use `try?` to convert it to an Optional when you can recover with nil."
+  },
+  "swift-empty-catch": {
+    "problem": "An empty catch block silently swallows the error. The program continues as if nothing happened, which makes failures invisible until they cause data corruption downstream.",
+    "impact": "Bugs hide for a long time, and incident debugging is much harder without the original error.",
+    "fix": "At minimum log the error (Logger / os_log). Better, decide whether the function should rethrow, return a Result, or fall back to a safe default."
+  },
+  "swift-todo-comment": {
+    "problem": "TODO and FIXME comments are reminders that something is incomplete or broken. They tend to accumulate and get forgotten over time.",
+    "impact": "Tracked technical debt drifts; comments alone do not get triaged or scheduled.",
+    "fix": "Either fix the item immediately or open a ticket in your tracker and reference its ID in the comment, then remove the bare TODO."
+  },
+  "swift-fatalError-prod": {
+    "problem": "fatalError() unconditionally crashes the app. It is appropriate for code paths that should be impossible, but not for input validation or unexpected runtime state.",
+    "impact": "A reachable fatalError gives users a hard crash where graceful handling would be possible.",
+    "fix": "Replace with proper error propagation (throw, Result), an assertion (assertionFailure only crashes in debug builds), or a UI error state."
+  }
+}

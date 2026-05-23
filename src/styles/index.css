@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body {
+    @apply bg-brand-surface text-slate-100 antialiased;
+  }
+  body {
+    @apply min-h-screen;
+  }
+}
