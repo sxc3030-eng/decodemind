@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { VitePWA } from 'vite-plugin-pwa';
+import wasm from 'vite-plugin-wasm';
+import topLevelAwait from 'vite-plugin-top-level-await';
 import { copyGrammarsPlugin } from './src/lib/grammars/copyGrammarsPlugin';
 
 // Required for WebGPU + SharedArrayBuffer (WebLLM) on both dev and preview servers.
@@ -12,6 +14,10 @@ const crossOriginIsolationHeaders = {
 
 export default defineConfig({
   plugins: [
+    // wasm + topLevelAwait support `@ast-grep/wasm` which imports `wasm_bg.wasm`
+    // via JS module syntax. Required since V2.1 wired the ast-grep worker.
+    wasm(),
+    topLevelAwait(),
     react(),
     copyGrammarsPlugin(),
     VitePWA({
@@ -50,6 +56,9 @@ export default defineConfig({
   },
   worker: {
     format: 'es',
+    // Workers need the same wasm + top-level-await transform — the ast-grep
+    // worker imports `@ast-grep/wasm` which uses ESM-WASM integration.
+    plugins: () => [wasm(), topLevelAwait()],
   },
   server: {
     headers: crossOriginIsolationHeaders,

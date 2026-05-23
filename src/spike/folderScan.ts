@@ -9,6 +9,9 @@ import { eslintFixToEdits } from '@/lib/fixes/convertEslintFix';
 import { scanManifest } from '@/lib/scanners/osv/scanner';
 import { DOCKERFILE_RULES } from '@/lib/scanners/dockerfile/rules';
 import { YAML_RULES } from '@/lib/scanners/yaml/rules';
+// V2.1 — ast-grep dispatch
+import type { AstGrepRequest, AstGrepResponse } from '@/workers/ast-grep.worker';
+import { getRulesByLanguage, ruleToYaml, EXT_TO_TREESITTER } from '@/lib/rules/loadAllRules';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -249,6 +252,9 @@ function makeEslintWorker() {
 }
 function makePrettierWorker() {
   return new Worker(new URL('../workers/prettier.worker.ts', import.meta.url), { type: 'module' });
+}
+function makeAstGrepWorker() {
+  return new Worker(new URL('../workers/ast-grep.worker.ts', import.meta.url), { type: 'module' });
 }
 
 /** Send one message to a worker and resolve with the response. */
@@ -559,20 +565,82 @@ export async function scanAllFiles(
     onProgress({ ...done }, { ...total });
   }
 
-  // ── ast-grep scanner (V2.1) ──────────────────────────────────────────────────
-  // Java/Kotlin/Swift/Dart/C#/PHP/Go/Ruby/Bash files are matched and counted
-  // here so users see what gets recognized, but actual rule dispatch lives in
-  // the dedicated ast-grep worker — wired in a follow-up commit. The 147
-  // V2 ast-grep YAML rules + grammars are already on disk and ready to use.
-  const astGrepFiles = files.filter((f) => f.scanner === 'ast-grep');
-  for (const _file of astGrepFiles) {
-    done['ast-grep']++;
-    onProgress({ ...done }, { ...total });
+  // ── ast-grep scanner (V2.1 — wired) ──────────────────────────────────────────
+  // Run the 207 ast-grep YAML rules (60 V1 + 147 V2) against every file whose
+  // extension maps to a tree-sitter language with at least one rule. This
+  // covers BOTH the dedicated 'ast-grep' scanner kind (Java/Kotlin/Swift/…)
+  // AND the V1-linted files (Python/JS/TS/HTML/CSS) which gain the 60 V1
+  // ast-grep rules on top of their primary linter.
+  //
+  // Strategy: group files by tree-sitter language → for each language with
+  // matching rules, fire one worker call per rule against all files of that
+  // language. The worker registers each grammar once (lazy) and reuses it.
+  const filesByLang = new Map<string, ScanFile[]>();
+  for (const f of files) {
+    const ext = (() => {
+      const i = f.path.lastIndexOf('.');
+      return i === -1 ? '' : f.path.slice(i).toLowerCase();
+    })();
+    const tsLang = EXT_TO_TREESITTER[ext];
+    if (!tsLang) continue;
+    const bucket = filesByLang.get(tsLang);
+    if (bucket) bucket.push(f);
+    else filesByLang.set(tsLang, [f]);
   }
-  if (astGrepFiles.length > 0) {
-    warnings.push(
-      `ast-grep: ${astGrepFiles.length} file(s) recognized but rules not yet dispatched (V2.1 — grammar+rules on disk, worker wire-up pending)`,
-    );
+
+  const rulesByLang = getRulesByLanguage();
+  // Build the joint job list: one entry per (language, rule) pair where
+  // both sides have content. Each entry scans ALL files of that language.
+  type AstGrepJob = { lang: string; rule: { id: string; severity: string }; ruleYaml: string; fileSet: ScanFile[] };
+  const astGrepJobs: AstGrepJob[] = [];
+  for (const [lang, langFiles] of filesByLang) {
+    const langRules = rulesByLang.get(lang) ?? [];
+    for (const rule of langRules) {
+      astGrepJobs.push({
+        lang,
+        rule: { id: rule.id, severity: rule.severity },
+        ruleYaml: ruleToYaml(rule),
+        fileSet: langFiles,
+      });
+    }
+  }
+
+  // Pre-count expected work for the progress callback. The ast-grep scanner
+  // counts ONE unit per (file × rule) pair across all languages so the UI
+  // shows real progress.
+  const astGrepWork = astGrepJobs.reduce((sum, j) => sum + j.fileSet.length, 0);
+  total['ast-grep'] = astGrepWork;
+
+  if (astGrepJobs.length > 0) {
+    const jobs = astGrepJobs.map((job) => ({
+      request: {
+        type: 'scan' as const,
+        files: job.fileSet.map((f) => ({
+          path: f.path,
+          content: f.content,
+          language: job.lang,
+        })),
+        ruleYaml: job.ruleYaml,
+      } satisfies AstGrepRequest,
+      onResult: (res: AstGrepResponse) => {
+        if (res.type === 'error') {
+          warnings.push(`ast-grep error on rule ${job.rule.id}: ${res.message}`);
+        } else {
+          for (const m of res.matches) {
+            findings.push({
+              file: m.file,
+              line: m.startLine,
+              severity: job.rule.severity as AggregatedFinding['severity'],
+              ruleId: job.rule.id,
+              message: `${job.rule.id}: ${m.text.slice(0, 80)}${m.text.length > 80 ? '…' : ''}`,
+            });
+          }
+        }
+        done['ast-grep'] += job.fileSet.length;
+        onProgress({ ...done }, { ...total });
+      },
+    }));
+    await runPool<AstGrepRequest, AstGrepResponse>(makeAstGrepWorker, POOL_SIZE, jobs);
   }
 
   return {

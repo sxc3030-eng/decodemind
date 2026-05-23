@@ -3,6 +3,7 @@
 // not { initializeAstGrep, parseFiles }. The Language type is a plain string, not an exported type.
 // Source: node_modules/@ast-grep/wasm/wasm.d.ts
 import { initializeTreeSitter, registerDynamicLanguage, parse } from '@ast-grep/wasm';
+import { parse as parseYaml } from 'yaml';
 
 export interface AstGrepRequest {
   type: 'scan';
@@ -59,50 +60,27 @@ async function ensureInit(languages: string[]): Promise<void> {
 }
 
 /**
- * Minimal YAML parser for the ast-grep rule format used by this worker.
+ * Full YAML parser for ast-grep rules. Replaces the V1 regex-based parser
+ * which couldn't handle V2 rule shapes (any, all, kind, inside, has, not).
  *
  * The real @ast-grep/wasm API does NOT accept raw YAML strings — SgNode.findAll()
- * takes a JS rule-config object (same shape as YAML but as plain JS). This helper
- * parses the YAML subset used by DecodeMind's seed rules.
+ * takes a JS rule-config object (same shape as YAML but as plain JS). We use
+ * the `yaml` npm package (already a dep of loader.ts) to parse the YAML into
+ * an object and pass `rule` directly to findAll().
  *
- * Supported shape (matches llm-fake-pandas-method.yml exactly):
- *   id: <string>
- *   rule:
- *     pattern: <string>
- *     constraints:
- *       <VAR>:
- *         regex: '<string>'
- *
- * Throws if `pattern` is missing — a silent empty pattern would produce zero
- * matches and look like a successful scan.
+ * Throws if the YAML is malformed or `rule` is missing.
  */
 function parseRuleYaml(yaml: string): { id: string; rule: Record<string, unknown> } {
-  const idMatch = yaml.match(/^id:\s*(.+)$/m);
-  const id = idMatch ? idMatch[1].trim() : 'unknown';
-
-  const patternMatch = yaml.match(/^\s*pattern:\s*(.+)$/m);
-  const rulePattern = patternMatch ? patternMatch[1].trim() : '';
-  if (!rulePattern) {
-    throw new Error(`parseRuleYaml: could not extract 'pattern' from rule YAML`);
+  const obj = parseYaml(yaml) as Record<string, unknown> | null;
+  if (!obj || typeof obj !== 'object') {
+    throw new Error('parseRuleYaml: YAML did not parse to an object');
   }
-
-  const constraints: Record<string, Record<string, string>> = {};
-  const constraintsBlockMatch = yaml.match(/constraints:\s*\n([\s\S]*?)(?=\n\S|$)/);
-  if (constraintsBlockMatch) {
-    const block = constraintsBlockMatch[1];
-    const entryRe = /^\s{2,4}(\w+):\s*\n\s{4,8}(\w+):\s*['"]?(.*?)['"]?\s*$/gm;
-    let m: RegExpExecArray | null;
-    while ((m = entryRe.exec(block)) !== null) {
-      const [, varName, key, value] = m;
-      constraints[varName] = { [key]: value };
-    }
+  const id = typeof obj.id === 'string' ? obj.id : 'unknown';
+  const rule = obj.rule;
+  if (!rule || typeof rule !== 'object') {
+    throw new Error(`parseRuleYaml: missing or invalid 'rule' object in ${id}`);
   }
-
-  const rule: Record<string, unknown> = { pattern: rulePattern };
-  if (Object.keys(constraints).length > 0) {
-    rule.constraints = constraints;
-  }
-  return { id, rule };
+  return { id, rule: rule as Record<string, unknown> };
 }
 
 self.onmessage = async (event: MessageEvent<AstGrepRequest>) => {
