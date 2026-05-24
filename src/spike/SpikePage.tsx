@@ -448,6 +448,14 @@ export function SpikePage() {
         <p className="text-brand-muted">
           Click each button in order. Then export JSON and paste into the findings doc.
         </p>
+        <p className="text-xs text-brand-muted/70 mt-1 font-mono">
+          v{import.meta.env.VITE_APP_VERSION ?? 'dev'}
+          {' · '}
+          <span title="git commit">{import.meta.env.VITE_APP_COMMIT ?? 'unknown'}</span>
+          {' · '}
+          <span title="build time (UTC)">{import.meta.env.VITE_APP_BUILT ?? 'live'}</span>
+          {import.meta.env.DEV ? ' · dev' : ' · prod'}
+        </p>
       </header>
 
       <section className="bg-brand-card rounded-lg p-4 space-y-3">

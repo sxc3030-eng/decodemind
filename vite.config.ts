@@ -1,10 +1,26 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { VitePWA } from 'vite-plugin-pwa';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import { copyGrammarsPlugin } from './src/lib/grammars/copyGrammarsPlugin';
+
+/** Read package.json version + current git short hash at build time. */
+function buildInfo(): { version: string; commit: string; built: string } {
+  const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf8'));
+  let commit = 'unknown';
+  try {
+    commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+    // Not a git checkout (e.g. CI without git). Fine — keep 'unknown'.
+  }
+  return { version: pkg.version, commit, built: new Date().toISOString().slice(0, 16) + 'Z' };
+}
+
+const APP_BUILD = buildInfo();
 
 // Required for WebGPU + SharedArrayBuffer (WebLLM) on both dev and preview servers.
 const crossOriginIsolationHeaders = {
@@ -13,6 +29,13 @@ const crossOriginIsolationHeaders = {
 };
 
 export default defineConfig({
+  define: {
+    // Inject build metadata as compile-time constants. Reachable via
+    // `import.meta.env.VITE_APP_VERSION` / `VITE_APP_COMMIT` / `VITE_APP_BUILT`.
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(APP_BUILD.version),
+    'import.meta.env.VITE_APP_COMMIT':  JSON.stringify(APP_BUILD.commit),
+    'import.meta.env.VITE_APP_BUILT':   JSON.stringify(APP_BUILD.built),
+  },
   plugins: [
     // wasm + topLevelAwait support `@ast-grep/wasm` which imports `wasm_bg.wasm`
     // via JS module syntax. Required since V2.1 wired the ast-grep worker.
