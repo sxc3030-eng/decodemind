@@ -339,42 +339,49 @@ async function runPool<TReq, TRes>(
 
   const actualSize = Math.min(poolSize, jobs.length);
   const workers = Array.from({ length: actualSize }, makeWorker);
-
-  // Track which worker is free: a Promise that resolves when the worker
-  // finishes its current task (initially all resolve immediately).
-  const workerSlots: Promise<void>[] = workers.map(() => Promise.resolve());
-
-  // A queue index we hand out round-trips; but we actually want "pick the
-  // soonest free worker", so we use a Promise.race over the slots.
   let jobIndex = 0;
 
-  // Kick off initial batch: one job per worker
-  const inFlight: Array<Promise<void>> = [];
-
-  function dispatchNext(workerIdx: number): Promise<void> {
-    if (jobIndex >= jobs.length) return Promise.resolve();
-    const job = jobs[jobIndex++];
-    const p: Promise<void> = ask<TReq, TRes>(workers[workerIdx], job.request).then(
-      (res) => {
+  /**
+   * CRITICAL FIX (2026-05-24): the prior implementation tracked workers
+   * via a `workerSlots[]` array reassigned inside `.then`, then awaited
+   * `Promise.all(workerSlots)`. But `Promise.all` snapshots its iterable at
+   * call time — subsequent reassignments to slot indexes never reach it.
+   * The `.then` callback didn't RETURN the next dispatch promise either, so
+   * the chain wasn't preserved on the promise tree. Net effect: the pool
+   * resolved after the FIRST job per worker, terminated the workers, and
+   * silently orphaned the remaining jobs (their postMessage hit a dead
+   * worker → never resolved → caller hung forever waiting on whatever
+   * downstream code was awaiting the orphaned chain).
+   *
+   * Symptom: "Scanning: Ruff 1/4" or "Ruff 2/4" stuck indefinitely.
+   *
+   * New design: each worker is driven by a single async loop that pulls
+   * jobs from the shared index. Workers exit cleanly when there are no
+   * more jobs. The outer await waits on the actual loop completion via
+   * `Promise.all(loopPromises)`.
+   */
+  async function workerLoop(workerIdx: number): Promise<void> {
+    while (true) {
+      const myIndex = jobIndex++;
+      if (myIndex >= jobs.length) return;
+      const job = jobs[myIndex];
+      try {
+        const res = await ask<TReq, TRes>(workers[workerIdx], job.request);
         job.onResult(res);
-        // Chain: when this slot frees, pick the next job for this worker
-        workerSlots[workerIdx] = dispatchNext(workerIdx);
-      },
-    );
-    return p;
+      } catch (err) {
+        // Surface the error through the onResult callback so callers can
+        // log it as a warning rather than crashing the whole pool.
+        const message = err instanceof Error ? err.message : String(err);
+        job.onResult({ type: 'error', message } as unknown as TRes);
+      }
+    }
   }
 
-  // Seed each worker with its first job
-  for (let i = 0; i < actualSize; i++) {
-    workerSlots[i] = dispatchNext(i);
-    inFlight.push(workerSlots[i]);
-  }
+  const loops: Promise<void>[] = [];
+  for (let i = 0; i < actualSize; i++) loops.push(workerLoop(i));
+  await Promise.all(loops);
 
-  // Wait until all workers have drained
-  // Since each slot chains into the next job, we wait for all slots to settle
-  await Promise.all(workerSlots);
-
-  // Terminate all workers
+  // Terminate all workers cleanly once every job has settled.
   for (const w of workers) w.terminate();
 }
 
