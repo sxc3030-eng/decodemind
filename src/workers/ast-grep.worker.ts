@@ -138,10 +138,13 @@ self.onmessage = async (event: MessageEvent<AstGrepRequest>) => {
 
     const { id: ruleId, rule, constraints, utils } = parseRuleYaml(event.data.ruleYaml);
 
-    // Build the NapiConfig: rule + (optionally) top-level constraints/utils.
-    // Without these, every meta-var regex constraint is silently dropped and
-    // patterns like `$VAR = $VALUE` would match every assignment in the file
-    // (huge false-positive blast). This was the V2.1 critical bug.
+    // `@ast-grep/wasm`'s `SgNode.findAll(matcher)` accepts either a rule
+    // object (just the matcher) OR a NapiConfig that also includes
+    // constraints/utils. The NapiConfig shape requires `rule` to be a
+    // top-level key alongside `constraints` and `utils`. Spreading the
+    // matcher fields flat ("kind: call, pattern: …") makes findAll think
+    // they're TOP-LEVEL config fields and rejects with "rule is not
+    // configured correctly". So keep the wrapped form.
     const matcher: Record<string, unknown> = { rule };
     if (constraints) matcher.constraints = constraints;
     if (utils) matcher.utils = utils;

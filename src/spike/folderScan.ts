@@ -692,7 +692,7 @@ export async function scanAllFiles(
         const wRes = await ask<AstGrepRequest, AstGrepResponse>(
           worker,
           { type: 'warmup', languages: langsToWarm },
-          120_000,
+          300_000,
         );
         const wMs = Math.round(performance.now() - wStart);
         if (wRes.type === 'error') {
@@ -738,6 +738,14 @@ export async function scanAllFiles(
           }
           // eslint-disable-next-line no-console
           console.warn(`[ast-grep] rule "${job.rule.id}" failed: ${res.message}`);
+          // Print the YAML actually sent — so we can confirm whether `kind:`
+          // and other fields survived `loadAllRules` + `ruleToYaml`. Helps
+          // diagnose 'Multiple AST nodes' errors that should have been
+          // resolved by adding a `kind:` selector.
+          if (errCount <= 5) {
+            // eslint-disable-next-line no-console
+            console.warn(`[ast-grep]   YAML sent for "${job.rule.id}":\n${job.ruleYaml}`);
+          }
         } else if (res.type === 'result') {
           for (const m of res.matches) {
             findings.push({
