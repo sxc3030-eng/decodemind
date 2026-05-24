@@ -307,7 +307,23 @@ function eslintSeverity(n: number): AggregatedFinding['severity'] {
 
 // ─── Worker pool ─────────────────────────────────────────────────────────────
 
-const POOL_SIZE = 2;
+/**
+ * Per-scanner pool size.
+ *
+ * RUFF and ASTGREP have to be 1 because both packages load a single shared
+ * WASM module on worker boot via `WebAssembly.compileStreaming(fetch(url))`.
+ * Spinning up 2 workers in parallel causes concurrent fetches of the same
+ * URL → the browser races the response and aborts one with
+ * `WebAssembly compilation aborted: Network error: Response body loading
+ * was aborted`. This was the 2026-05-24 production freeze diagnosis.
+ *
+ * ESLint and Prettier ship as plain JS (no wasm), so they can safely fan
+ * out across 2 workers for throughput.
+ */
+const POOL_SIZE_RUFF = 1;
+const POOL_SIZE_ESLINT = 2;
+const POOL_SIZE_PRETTIER = 2;
+const POOL_SIZE_ASTGREP = 1;
 
 /**
  * Run a pool of N workers over a list of jobs.
@@ -422,7 +438,7 @@ export async function scanAllFiles(
         onProgress({ ...done }, { ...total });
       },
     }));
-    await runPool<RuffReq, RuffResponse>(makeRuffWorker, POOL_SIZE, jobs);
+    await runPool<RuffReq, RuffResponse>(makeRuffWorker, POOL_SIZE_RUFF, jobs);
   }
 
   // ── ESLint pool ──────────────────────────────────────────────────────────────
@@ -453,7 +469,7 @@ export async function scanAllFiles(
         onProgress({ ...done }, { ...total });
       },
     }));
-    await runPool<EslintReq, EslintResponse>(makeEslintWorker, POOL_SIZE, jobs);
+    await runPool<EslintReq, EslintResponse>(makeEslintWorker, POOL_SIZE_ESLINT, jobs);
   }
 
   // ── Prettier pool (html + css share one pool) ─────────────────────────────────
@@ -488,7 +504,7 @@ export async function scanAllFiles(
         },
       };
     });
-    await runPool<PrettierReq, PrettierResponse>(makePrettierWorker, POOL_SIZE, jobs);
+    await runPool<PrettierReq, PrettierResponse>(makePrettierWorker, POOL_SIZE_PRETTIER, jobs);
   }
 
   // ── OSV scanner (pure function, runs inline — no worker) ─────────────────────
@@ -670,7 +686,7 @@ export async function scanAllFiles(
           onProgress({ ...done }, { ...total });
         },
       }));
-      await runPool<AstGrepRequest, AstGrepResponse>(makeAstGrepWorker, POOL_SIZE, jobs);
+      await runPool<AstGrepRequest, AstGrepResponse>(makeAstGrepWorker, POOL_SIZE_ASTGREP, jobs);
       if (errCount > 5) {
         warnings.push(`ast-grep: ${errCount - 5} additional rule errors suppressed (see browser console).`);
       }
