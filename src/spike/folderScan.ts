@@ -575,72 +575,113 @@ export async function scanAllFiles(
   // Strategy: group files by tree-sitter language → for each language with
   // matching rules, fire one worker call per rule against all files of that
   // language. The worker registers each grammar once (lazy) and reuses it.
-  const filesByLang = new Map<string, ScanFile[]>();
-  for (const f of files) {
-    const ext = (() => {
-      const i = f.path.lastIndexOf('.');
-      return i === -1 ? '' : f.path.slice(i).toLowerCase();
-    })();
-    const tsLang = EXT_TO_TREESITTER[ext];
-    if (!tsLang) continue;
-    const bucket = filesByLang.get(tsLang);
-    if (bucket) bucket.push(f);
-    else filesByLang.set(tsLang, [f]);
-  }
-
-  const rulesByLang = getRulesByLanguage();
-  // Build the joint job list: one entry per (language, rule) pair where
-  // both sides have content. Each entry scans ALL files of that language.
-  type AstGrepJob = { lang: string; rule: { id: string; severity: string }; ruleYaml: string; fileSet: ScanFile[] };
-  const astGrepJobs: AstGrepJob[] = [];
-  for (const [lang, langFiles] of filesByLang) {
-    const langRules = rulesByLang.get(lang) ?? [];
-    for (const rule of langRules) {
-      astGrepJobs.push({
-        lang,
-        rule: { id: rule.id, severity: rule.severity },
-        ruleYaml: ruleToYaml(rule),
-        fileSet: langFiles,
-      });
+  //
+  // ALL work below is wrapped in a single try/catch so a bug in the ast-grep
+  // dispatch (e.g. one bad YAML, worker init failure, grammar 404) NEVER
+  // crashes the whole scan — the user always gets at least the Ruff/ESLint/
+  // Prettier findings + a clear warning explaining what failed.
+  try {
+    const filesByLang = new Map<string, ScanFile[]>();
+    for (const f of files) {
+      const ext = (() => {
+        const i = f.path.lastIndexOf('.');
+        return i === -1 ? '' : f.path.slice(i).toLowerCase();
+      })();
+      const tsLang = EXT_TO_TREESITTER[ext];
+      if (!tsLang) continue;
+      const bucket = filesByLang.get(tsLang);
+      if (bucket) bucket.push(f);
+      else filesByLang.set(tsLang, [f]);
     }
-  }
 
-  // Pre-count expected work for the progress callback. The ast-grep scanner
-  // counts ONE unit per (file × rule) pair across all languages so the UI
-  // shows real progress.
-  const astGrepWork = astGrepJobs.reduce((sum, j) => sum + j.fileSet.length, 0);
-  total['ast-grep'] = astGrepWork;
+    const rulesByLang = getRulesByLanguage();
+    // Diagnostic snapshot — surfaces "rules loaded zero" / "no python files"
+    // / "no jobs built" failures that previously failed silently.
+    const langSummary = Array.from(filesByLang.entries())
+      .map(([lang, fs]) => `${lang}:${fs.length}files/${(rulesByLang.get(lang) ?? []).length}rules`)
+      .join(', ') || '(no files matched a tree-sitter language)';
+    // eslint-disable-next-line no-console
+    console.info(`[ast-grep] dispatch summary — ${langSummary}`);
 
-  if (astGrepJobs.length > 0) {
-    const jobs = astGrepJobs.map((job) => ({
-      request: {
-        type: 'scan' as const,
-        files: job.fileSet.map((f) => ({
-          path: f.path,
-          content: f.content,
-          language: job.lang,
-        })),
-        ruleYaml: job.ruleYaml,
-      } satisfies AstGrepRequest,
-      onResult: (res: AstGrepResponse) => {
-        if (res.type === 'error') {
-          warnings.push(`ast-grep error on rule ${job.rule.id}: ${res.message}`);
-        } else {
-          for (const m of res.matches) {
-            findings.push({
-              file: m.file,
-              line: m.startLine,
-              severity: job.rule.severity as AggregatedFinding['severity'],
-              ruleId: job.rule.id,
-              message: `${job.rule.id}: ${m.text.slice(0, 80)}${m.text.length > 80 ? '…' : ''}`,
-            });
+    // Build the joint job list: one entry per (language, rule) pair where
+    // both sides have content. Each entry scans ALL files of that language.
+    type AstGrepJob = { lang: string; rule: { id: string; severity: string }; ruleYaml: string; fileSet: ScanFile[] };
+    const astGrepJobs: AstGrepJob[] = [];
+    for (const [lang, langFiles] of filesByLang) {
+      const langRules = rulesByLang.get(lang) ?? [];
+      for (const rule of langRules) {
+        astGrepJobs.push({
+          lang,
+          rule: { id: rule.id, severity: rule.severity },
+          ruleYaml: ruleToYaml(rule),
+          fileSet: langFiles,
+        });
+      }
+    }
+
+    // Pre-count expected work for the progress callback. The ast-grep scanner
+    // counts ONE unit per (file × rule) pair across all languages so the UI
+    // shows real progress.
+    const astGrepWork = astGrepJobs.reduce((sum, j) => sum + j.fileSet.length, 0);
+    total['ast-grep'] = astGrepWork;
+
+    if (astGrepJobs.length === 0) {
+      warnings.push(
+        `ast-grep: no rules dispatched (filesByLang=${Array.from(filesByLang.keys()).join('|') || '∅'}, ` +
+        `rulesByLang has ${Array.from(rulesByLang.keys()).length} languages). ` +
+        `If you expected rules to fire, the import.meta.glob of definitions may have returned empty in the build.`,
+      );
+    } else {
+      // eslint-disable-next-line no-console
+      console.info(`[ast-grep] dispatching ${astGrepJobs.length} jobs across ${filesByLang.size} languages`);
+      let errCount = 0;
+      const jobs = astGrepJobs.map((job) => ({
+        request: {
+          type: 'scan' as const,
+          files: job.fileSet.map((f) => ({
+            path: f.path,
+            content: f.content,
+            language: job.lang,
+          })),
+          ruleYaml: job.ruleYaml,
+        } satisfies AstGrepRequest,
+        onResult: (res: AstGrepResponse) => {
+          if (res.type === 'error') {
+            errCount++;
+            // Push only the first 5 individual rule errors as warnings to keep the
+            // report clean; aggregate the rest into a single counter at the end.
+            if (errCount <= 5) {
+              warnings.push(`ast-grep error on rule ${job.rule.id}: ${res.message}`);
+            }
+            // eslint-disable-next-line no-console
+            console.warn(`[ast-grep] rule "${job.rule.id}" failed: ${res.message}`);
+          } else {
+            for (const m of res.matches) {
+              findings.push({
+                file: m.file,
+                line: m.startLine,
+                severity: job.rule.severity as AggregatedFinding['severity'],
+                ruleId: job.rule.id,
+                message: `${job.rule.id}: ${m.text.slice(0, 80)}${m.text.length > 80 ? '…' : ''}`,
+              });
+            }
           }
-        }
-        done['ast-grep'] += job.fileSet.length;
-        onProgress({ ...done }, { ...total });
-      },
-    }));
-    await runPool<AstGrepRequest, AstGrepResponse>(makeAstGrepWorker, POOL_SIZE, jobs);
+          done['ast-grep'] += job.fileSet.length;
+          onProgress({ ...done }, { ...total });
+        },
+      }));
+      await runPool<AstGrepRequest, AstGrepResponse>(makeAstGrepWorker, POOL_SIZE, jobs);
+      if (errCount > 5) {
+        warnings.push(`ast-grep: ${errCount - 5} additional rule errors suppressed (see browser console).`);
+      }
+      // eslint-disable-next-line no-console
+      console.info(`[ast-grep] complete — ${astGrepJobs.length} jobs, ${errCount} errors`);
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    warnings.push(`ast-grep dispatch crashed: ${message}`);
+    // eslint-disable-next-line no-console
+    console.error('[ast-grep] dispatch crashed', err);
   }
 
   return {
