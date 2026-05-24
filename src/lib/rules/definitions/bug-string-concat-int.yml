@@ -4,6 +4,13 @@ category: bug
 severity: error
 message: Implicit string + int concatenation will TypeError
 rule:
+  kind: binary_operator
   pattern: $STR + $NUM
-# TODO: This is a broad approximation — ast-grep cannot determine types.
-# Ideally narrow to cases where one operand is a string literal and the other is an int literal.
+constraints:
+  STR:
+    regex: '^".*"$|^''.*''$'
+  NUM:
+    regex: '^[0-9]+$'
+# Narrowed: STR must be a literal string ("..." or '...'), NUM must be an integer
+# literal. Without these constraints the rule would flag every binary `+` in
+# the file. ast-grep needs `kind: binary_operator` to disambiguate the pattern.

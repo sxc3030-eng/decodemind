@@ -333,7 +333,10 @@ function eslintSeverity(n: number): AggregatedFinding['severity'] {
 const POOL_SIZE_RUFF = 1;
 const POOL_SIZE_ESLINT = 2;
 const POOL_SIZE_PRETTIER = 2;
-const POOL_SIZE_ASTGREP = 1;
+// ast-grep no longer goes through runPool — it has a single dedicated worker
+// (built inline) so we can fire a warmup message on it before dispatching
+// the real rule jobs. See the inline loop in scanAllFiles for the
+// implementation. We keep no POOL_SIZE_ASTGREP constant.
 
 /**
  * Run a pool of N workers over a list of jobs.
@@ -669,46 +672,89 @@ export async function scanAllFiles(
       console.info(`[ast-grep] dispatching ${astGrepJobs.length} jobs across ${filesByLang.size} languages`);
       let errCount = 0;
       let jobsDone = 0;
-      const jobs = astGrepJobs.map((job) => ({
-        request: {
-          type: 'scan' as const,
+
+      // Single-worker dispatch with explicit warmup. POOL_SIZE_ASTGREP=1 so we
+      // can keep the worker alive across the entire scan — the first scan
+      // through web-tree-sitter eats the WASM-compile + grammar-fetch cost
+      // (~30-60s on Vite dev), but subsequent scans land in <100ms because
+      // the language is cached in the worker's `registeredLanguages` Set.
+      //
+      // Critical: the warmup runs on the SAME worker that processes the rule
+      // jobs. A separate warmup worker would be useless — worker scopes are
+      // isolated and the registered-language Set lives in module state inside
+      // the worker.
+      const worker = makeAstGrepWorker();
+      const langsToWarm = Array.from(filesByLang.keys());
+      // eslint-disable-next-line no-console
+      console.info(`[ast-grep] warming up grammars: ${langsToWarm.join(', ')}`);
+      try {
+        const wStart = performance.now();
+        const wRes = await ask<AstGrepRequest, AstGrepResponse>(
+          worker,
+          { type: 'warmup', languages: langsToWarm },
+          120_000,
+        );
+        const wMs = Math.round(performance.now() - wStart);
+        if (wRes.type === 'error') {
+          warnings.push(`ast-grep warmup failed: ${wRes.message}`);
+          // eslint-disable-next-line no-console
+          console.warn(`[ast-grep] warmup failed in ${wMs}ms: ${wRes.message}`);
+        } else {
+          // eslint-disable-next-line no-console
+          console.info(`[ast-grep] warmed in ${wMs}ms`);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        warnings.push(`ast-grep warmup error: ${message}`);
+        // eslint-disable-next-line no-console
+        console.warn(`[ast-grep] warmup error: ${message}`);
+      }
+
+      // Now run every rule against the SAME warmed worker.
+      for (const job of astGrepJobs) {
+        const req: AstGrepRequest = {
+          type: 'scan',
           files: job.fileSet.map((f) => ({
             path: f.path,
             content: f.content,
             language: job.lang,
           })),
           ruleYaml: job.ruleYaml,
-        } satisfies AstGrepRequest,
-        onResult: (res: AstGrepResponse) => {
-          jobsDone++;
-          // Verbose per-job log: lets us spot the exact rule that hangs / errors.
-          // eslint-disable-next-line no-console
-          console.info(`[ast-grep] job ${jobsDone}/${astGrepJobs.length} — ${job.rule.id} → ${res.type}`);
-          if (res.type === 'error') {
-            errCount++;
-            // Push only the first 5 individual rule errors as warnings to keep the
-            // report clean; aggregate the rest into a single counter at the end.
-            if (errCount <= 5) {
-              warnings.push(`ast-grep error on rule ${job.rule.id}: ${res.message}`);
-            }
-            // eslint-disable-next-line no-console
-            console.warn(`[ast-grep] rule "${job.rule.id}" failed: ${res.message}`);
-          } else {
-            for (const m of res.matches) {
-              findings.push({
-                file: m.file,
-                line: m.startLine,
-                severity: job.rule.severity as AggregatedFinding['severity'],
-                ruleId: job.rule.id,
-                message: `${job.rule.id}: ${m.text.slice(0, 80)}${m.text.length > 80 ? '…' : ''}`,
-              });
-            }
+        };
+        let res: AstGrepResponse;
+        try {
+          res = await ask<AstGrepRequest, AstGrepResponse>(worker, req);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          res = { type: 'error', message } as AstGrepResponse;
+        }
+        jobsDone++;
+        // eslint-disable-next-line no-console
+        console.info(`[ast-grep] job ${jobsDone}/${astGrepJobs.length} — ${job.rule.id} → ${res.type}`);
+        if (res.type === 'error') {
+          errCount++;
+          if (errCount <= 5) {
+            warnings.push(`ast-grep error on rule ${job.rule.id}: ${res.message}`);
           }
-          done['ast-grep'] += job.fileSet.length;
-          onProgress({ ...done }, { ...total });
-        },
-      }));
-      await runPool<AstGrepRequest, AstGrepResponse>(makeAstGrepWorker, POOL_SIZE_ASTGREP, jobs);
+          // eslint-disable-next-line no-console
+          console.warn(`[ast-grep] rule "${job.rule.id}" failed: ${res.message}`);
+        } else if (res.type === 'result') {
+          for (const m of res.matches) {
+            findings.push({
+              file: m.file,
+              line: m.startLine,
+              severity: job.rule.severity as AggregatedFinding['severity'],
+              ruleId: job.rule.id,
+              message: `${job.rule.id}: ${m.text.slice(0, 80)}${m.text.length > 80 ? '…' : ''}`,
+            });
+          }
+        }
+        done['ast-grep'] += job.fileSet.length;
+        onProgress({ ...done }, { ...total });
+      }
+
+      worker.terminate();
+
       if (errCount > 5) {
         warnings.push(`ast-grep: ${errCount - 5} additional rule errors suppressed (see browser console).`);
       }

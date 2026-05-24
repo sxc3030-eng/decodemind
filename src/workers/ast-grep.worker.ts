@@ -5,12 +5,13 @@
 import { initializeTreeSitter, registerDynamicLanguage, parse } from '@ast-grep/wasm';
 import { parse as parseYaml } from 'yaml';
 
-export interface AstGrepRequest {
-  type: 'scan';
-  // Adjusted from spec: Language is string, not an imported type (no Language export in wasm.d.ts)
-  files: { path: string; content: string; language: string }[];
-  ruleYaml: string;
-}
+/** Two request kinds:
+ *  - `warmup` initializes tree-sitter + registers a language grammar without
+ *    running any rule. Eliminates the first-real-rule timeout on cold load.
+ *  - `scan` runs one rule against all provided files. */
+export type AstGrepRequest =
+  | { type: 'warmup'; languages: string[] }
+  | { type: 'scan'; files: { path: string; content: string; language: string }[]; ruleYaml: string };
 
 export interface AstGrepMatch {
   ruleId: string;
@@ -24,6 +25,7 @@ export interface AstGrepMatch {
 
 export type AstGrepResponse =
   | { type: 'result'; matches: AstGrepMatch[]; elapsedMs: number }
+  | { type: 'warmed'; elapsedMs: number; languages: string[] }
   | { type: 'error'; message: string };
 
 let treeInitialized = false;
@@ -111,6 +113,24 @@ function parseRuleYaml(yaml: string): {
 }
 
 self.onmessage = async (event: MessageEvent<AstGrepRequest>) => {
+  // ── Warmup branch ──────────────────────────────────────────────────────────
+  // Pre-loads tree-sitter + every grammar requested. Caller runs this BEFORE
+  // dispatching real rules so the first real rule doesn't pay the
+  // ~30-60 second cold-load cost (web-tree-sitter ESM transform + WASM
+  // compile + grammar fetch) and time out under the 60s safety wall.
+  if (event.data.type === 'warmup') {
+    const wStart = performance.now();
+    try {
+      const langs = event.data.languages.map((l) => l.toLowerCase());
+      await ensureInit(langs);
+      const elapsedMs = Math.round(performance.now() - wStart);
+      self.postMessage({ type: 'warmed', elapsedMs, languages: langs } satisfies AstGrepResponse);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      self.postMessage({ type: 'error', message } satisfies AstGrepResponse);
+    }
+    return;
+  }
   if (event.data.type !== 'scan') return;
   try {
     const languages = [...new Set(event.data.files.map((f) => f.language.toLowerCase()))];

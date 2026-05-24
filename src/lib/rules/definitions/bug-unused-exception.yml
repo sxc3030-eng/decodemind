@@ -2,9 +2,16 @@ id: bug-unused-exception
 language: Python
 category: bug
 severity: warning
-message: Caught exception is never referenced — silent failure risk
+message: Caught exception with empty body — silent failure risk
 rule:
-  pattern: |
-    except Exception:
-      pass
-# TODO: also catch bare `except: pass` and `except SomeError: pass` variants.
+  pattern:
+    context: |
+      try:
+        x
+      except Exception:
+        pass
+    selector: except_clause
+# Note: ast-grep needs a `context` + `selector` form for multi-statement
+# patterns like try/except. Plain multi-line `pattern: |` rejects with
+# "Multiple AST nodes are detected" because Python's except_clause grammar
+# requires it to live under a try_statement.

@@ -4,7 +4,10 @@ category: security
 severity: warning
 message: open() with path built from variable — path traversal risk if variable is user-controlled
 rule:
+  kind: call
   pattern: open($PATH)
-  has:
-    kind: call
-    pattern: $PATH
+# Note: ast-grep needs `kind: call` to disambiguate the open() call from
+# other syntactic forms. The previous rule had a malformed `has:` clause
+# that caused "Multiple AST nodes are detected" at load time. This narrower
+# version flags every `open(<expr>)` call so the reviewer can confirm if
+# $PATH is user-controlled.

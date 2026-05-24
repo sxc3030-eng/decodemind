@@ -4,5 +4,9 @@ category: bug
 severity: info
 message: dict.get() without default returns None — caller may not handle it
 rule:
+  kind: call
   pattern: $DICT.get($KEY)
-# TODO: exclude cases where the result is explicitly compared to None.
+# Note: ast-grep needs `kind: call` to disambiguate the pattern. Without it,
+# the matcher rejects with "Multiple AST nodes are detected" because $DICT.get($KEY)
+# could parse as identifier/attribute/call. False-positive risk: also matches
+# `requests.get(url)` etc. — flagged broadly so the reviewer can confirm.
