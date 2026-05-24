@@ -257,12 +257,19 @@ function makeAstGrepWorker() {
   return new Worker(new URL('../workers/ast-grep.worker.ts', import.meta.url), { type: 'module' });
 }
 
-/** Send one message to a worker and resolve with the response. */
-function ask<TReq, TRes>(worker: Worker, req: TReq): Promise<TRes> {
+/** Send one message to a worker and resolve with the response.
+ *  Includes a 15s safety timeout so a hung worker (e.g. tree-sitter
+ *  infinite loop on a pathological rule pattern) doesn't deadlock the
+ *  whole scan. The whole runPool retries cleanly on the next job after
+ *  one timeout, so a single bad rule doesn't bring everything down. */
+function ask<TReq, TRes>(worker: Worker, req: TReq, timeoutMs = 15_000): Promise<TRes> {
   return new Promise<TRes>((resolve, reject) => {
-    worker.onmessage = (e: MessageEvent<TRes>) => resolve(e.data);
-    worker.onerror = (e) => reject(new Error(e.message || 'worker error'));
-    worker.onmessageerror = () => reject(new Error('worker messageerror'));
+    const t = setTimeout(() => {
+      reject(new Error(`worker timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
+    worker.onmessage = (e: MessageEvent<TRes>) => { clearTimeout(t); resolve(e.data); };
+    worker.onerror = (e) => { clearTimeout(t); reject(new Error(e.message || 'worker error')); };
+    worker.onmessageerror = () => { clearTimeout(t); reject(new Error('worker messageerror')); };
     worker.postMessage(req);
   });
 }
@@ -658,6 +665,7 @@ export async function scanAllFiles(
       // eslint-disable-next-line no-console
       console.info(`[ast-grep] dispatching ${astGrepJobs.length} jobs across ${filesByLang.size} languages`);
       let errCount = 0;
+      let jobsDone = 0;
       const jobs = astGrepJobs.map((job) => ({
         request: {
           type: 'scan' as const,
@@ -669,6 +677,10 @@ export async function scanAllFiles(
           ruleYaml: job.ruleYaml,
         } satisfies AstGrepRequest,
         onResult: (res: AstGrepResponse) => {
+          jobsDone++;
+          // Verbose per-job log: lets us spot the exact rule that hangs / errors.
+          // eslint-disable-next-line no-console
+          console.info(`[ast-grep] job ${jobsDone}/${astGrepJobs.length} — ${job.rule.id} → ${res.type}`);
           if (res.type === 'error') {
             errCount++;
             // Push only the first 5 individual rule errors as warnings to keep the
