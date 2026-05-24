@@ -258,11 +258,14 @@ function makeAstGrepWorker() {
 }
 
 /** Send one message to a worker and resolve with the response.
- *  Includes a 15s safety timeout so a hung worker (e.g. tree-sitter
- *  infinite loop on a pathological rule pattern) doesn't deadlock the
- *  whole scan. The whole runPool retries cleanly on the next job after
- *  one timeout, so a single bad rule doesn't bring everything down. */
-function ask<TReq, TRes>(worker: Worker, req: TReq, timeoutMs = 15_000): Promise<TRes> {
+ *  Includes a safety timeout so a hung worker (e.g. tree-sitter infinite
+ *  loop on a pathological rule pattern) doesn't deadlock the whole scan.
+ *  Default 60s — the first ast-grep job per scan triggers a one-time
+ *  cold-load of `web-tree-sitter` (~1 MB bundled JS, ESM-from-CJS
+ *  transform on Vite dev) plus a `WebAssembly.compileStreaming` of the
+ *  grammar wasm (~500 KB). On a slow dev box that can easily blow past
+ *  15s. Subsequent jobs land in <100 ms each. */
+function ask<TReq, TRes>(worker: Worker, req: TReq, timeoutMs = 60_000): Promise<TRes> {
   return new Promise<TRes>((resolve, reject) => {
     const t = setTimeout(() => {
       reject(new Error(`worker timeout after ${timeoutMs}ms`));
