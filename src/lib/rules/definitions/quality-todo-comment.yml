@@ -4,6 +4,8 @@ category: quality
 severity: info
 message: TODO comment found — track outside source if not actionable
 rule:
-  pattern: $ANY
-# TODO: ast-grep does not match comments with standard pattern syntax.
-# This is a placeholder; real detection requires regex on raw source text.
+  kind: comment
+  regex: 'TODO|FIXME|XXX'
+# ast-grep CAN match comments — use `kind: comment` + a regex on the
+# comment text. The previous `pattern: $ANY` was a no-op placeholder
+# that ast-grep rejects with "Multiple AST nodes detected".

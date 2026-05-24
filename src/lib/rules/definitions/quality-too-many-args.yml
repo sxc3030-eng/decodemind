@@ -4,6 +4,13 @@ category: quality
 severity: info
 message: Function takes many positional args — use keyword args or a dict
 rule:
-  pattern: def $FN($A, $B, $C, $D, $E, $$$REST)
-# TODO: This flags functions with 5+ positional params as approximation.
-# A stricter rule would count only non-self, non-kwargs parameters.
+  kind: function_definition
+  has:
+    field: parameters
+    has:
+      kind: identifier
+      nthChild: 5
+# Matches function definitions whose 5th parameter (or later) is a positional
+# identifier — code-smell approximation. Reviewers should narrow by hand for
+# self / *args / **kwargs cases. ast-grep can't easily express "≥ N positional
+# params after filtering self/kwargs" — V2.2 backlog.

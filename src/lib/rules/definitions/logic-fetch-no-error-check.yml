@@ -4,8 +4,12 @@ category: logic
 severity: warning
 message: fetch() result used without checking response.ok
 rule:
-  pattern: |
-    const $RES = await fetch($$$)
-    const $DATA = await $RES.json()
-# TODO: This catches the most common pattern. Cannot easily detect all paths
-# where response.ok is never checked before consuming body.
+  pattern:
+    context: |
+      const $RES = await fetch($URL);
+      const $DATA = await $RES.json();
+    selector: lexical_declaration
+# Uses `context + selector` so ast-grep can disambiguate the multi-statement
+# pattern. Without it the rule rejects with "Multiple AST nodes detected".
+# Note: false-positive risk — flags any await-then-await pattern even if
+# response.ok IS checked nearby. Reviewer confirmation needed.

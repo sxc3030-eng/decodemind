@@ -4,6 +4,11 @@ category: bug
 severity: warning
 message: DataFrame.append() removed in pandas 2.0 — use pd.concat()
 rule:
-  pattern: $DF.append($$$ARGS)
-# TODO: may false-positive on list/deque .append(); narrow by checking $DF naming
-# conventions (df, data_frame, etc.) in post-filter.
+  pattern:
+    context: $DF.append($$$ARGS)
+    selector: call
+# `context + selector` disambiguates the meta-var-only pattern so ast-grep
+# treats it as a call node. Without it the rule fails with "Multiple AST
+# nodes are detected" in the WASM runtime.
+# Known false-positive: matches list/deque .append() too. Reviewers should
+# verify against pandas DataFrame usage.
