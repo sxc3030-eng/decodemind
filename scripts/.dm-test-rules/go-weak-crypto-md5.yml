@@ -2,8 +2,7 @@ id: go-weak-crypto-md5
 language: Go
 category: security
 severity: warning
-message: MD5 is cryptographically broken — use SHA-256 (crypto/sha256) or
-  stronger for hashing
+message: MD5 is cryptographically broken — use SHA-256 (crypto/sha256) or stronger for hashing
 rule:
   any:
     - pattern: md5.New()

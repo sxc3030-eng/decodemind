@@ -2,7 +2,6 @@ id: bash-eval-call
 language: Bash
 category: security
 severity: error
-message: eval executes its argument as shell code — any variable in it becomes
-  injectable
+message: eval executes its argument as shell code — any variable in it becomes injectable
 rule:
   pattern: eval $X

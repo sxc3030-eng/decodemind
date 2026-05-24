@@ -7,3 +7,5 @@ rule:
   pattern: |
     const $RES = await fetch($$$)
     const $DATA = await $RES.json()
+# TODO: This catches the most common pattern. Cannot easily detect all paths
+# where response.ok is never checked before consuming body.

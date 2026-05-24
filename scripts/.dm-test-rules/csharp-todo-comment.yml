@@ -5,3 +5,5 @@ severity: info
 message: TODO/FIXME comment found — track in an issue tracker or resolve before merge
 rule:
   pattern: $ANY
+# TODO: ast-grep does not match comments with standard pattern syntax.
+# This is a placeholder; real detection requires regex on raw source text.

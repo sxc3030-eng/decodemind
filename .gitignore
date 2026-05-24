@@ -66,3 +66,8 @@ public/tree-sitter-*.wasm
 .DS_Store
 Thumbs.db
 desktop.ini
+scripts/.dm-test-rules/
+scripts/audit-output*.txt
+scripts/run-baseline.txt
+scripts/run-results.json
+scripts/run-stderr.log

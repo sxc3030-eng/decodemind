@@ -2,7 +2,6 @@ id: csharp-trust-all-cert
 language: C#
 category: security
 severity: error
-message: ServerCertificateValidationCallback returning true disables TLS
-  validation — anyone can MITM your HTTPS traffic
+message: ServerCertificateValidationCallback returning true disables TLS validation — anyone can MITM your HTTPS traffic
 rule:
   pattern: ServicePointManager.ServerCertificateValidationCallback = $$$ANY

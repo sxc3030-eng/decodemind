@@ -2,8 +2,7 @@ id: java-trust-all-x509
 language: Java
 category: security
 severity: error
-message: X509TrustManager with empty checkServerTrusted disables TLS validation
-  — anyone can MITM your traffic
+message: X509TrustManager with empty checkServerTrusted disables TLS validation — anyone can MITM your traffic
 rule:
   pattern: |
     public void checkServerTrusted(X509Certificate[] $CERTS, String $AUTH) {

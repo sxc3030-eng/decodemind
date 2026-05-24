@@ -2,7 +2,6 @@ id: ruby-mass-assignment-attributes
 language: Ruby
 category: security
 severity: error
-message: Mass assignment from params without strong parameters — attacker can
-  set arbitrary attributes; use params.require(:user).permit(...)
+message: Mass assignment from params without strong parameters — attacker can set arbitrary attributes; use params.require(:user).permit(...)
 rule:
   pattern: $M.new(params[$KEY])

@@ -2,12 +2,10 @@ id: swift-deeplink-no-validation
 language: Swift
 category: security
 severity: warning
-message: Deep-link handler accepts URL without scheme/host validation —
-  attackers can forge links to trigger sensitive flows
+message: Deep-link handler accepts URL without scheme/host validation — attackers can forge links to trigger sensitive flows
 rule:
-  pattern: >
-    func application(_ app: UIApplication, open url: URL, options: $OPTS) ->
-    Bool {
+  pattern: |
+    func application(_ app: UIApplication, open url: URL, options: $OPTS) -> Bool {
       $$$BODY
     }
   not:

@@ -2,10 +2,9 @@ id: dart-flutter-secure-storage-missing
 language: Dart
 category: security
 severity: warning
-message: Token stored via SharedPreferences — auth tokens belong in
-  flutter_secure_storage (Keychain/Keystore), not plain prefs
+message: Token stored via SharedPreferences — auth tokens belong in flutter_secure_storage (Keychain/Keystore), not plain prefs
 rule:
   pattern: $P.setString($KEY, $V)
 constraints:
   KEY:
-    regex: (?i)["'](token|access_token|refresh_token|jwt|bearer|session)
+    regex: '(?i)["''](token|access_token|refresh_token|jwt|bearer|session)'

@@ -2,7 +2,6 @@ id: csharp-sqli-interpolation
 language: C#
 category: security
 severity: error
-message: SqlCommand built from interpolated string with a variable — SQL
-  injection if any value is user-controlled; use parameterized queries
+message: SqlCommand built from interpolated string with a variable — SQL injection if any value is user-controlled; use parameterized queries
 rule:
   pattern: new SqlCommand($"SELECT {$V}", $CONN)

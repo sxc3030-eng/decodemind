@@ -32,7 +32,7 @@ JSON: expected=9 TP=9 FN=0 FP=0 TP%=100.0 FN%=0.0
 text: expected=4 TP=4 FN=0 FP=1 TP%=100.0 FN%=0.0
 
 ## ast-grep load failures
-  bug-react-key-missing
+  bug-unused-exception
 
 ## Per-fixture
 

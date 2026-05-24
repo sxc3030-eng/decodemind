@@ -2,7 +2,6 @@ id: java-spring-permitall
 language: Java
 category: security
 severity: warning
-message: Spring Security .permitAll() — confirm the endpoint is truly public;
-  never use on /admin or sensitive APIs
+message: Spring Security .permitAll() — confirm the endpoint is truly public; never use on /admin or sensitive APIs
 rule:
   pattern: $CHAIN.permitAll()

@@ -2,10 +2,9 @@ id: dart-runtime-process-run
 language: Dart
 category: security
 severity: error
-message: Process.run called with a variable command — if any part is
-  user-controlled, this is command injection
+message: Process.run called with a variable command — if any part is user-controlled, this is command injection
 rule:
   pattern: Process.run($CMD, $ARGS)
 constraints:
   CMD:
-    regex: ^[a-zA-Z_]
+    regex: '^[a-zA-Z_]'

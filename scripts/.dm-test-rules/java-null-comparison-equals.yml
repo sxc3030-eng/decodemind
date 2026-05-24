@@ -2,7 +2,6 @@ id: java-null-comparison-equals
 language: Java
 category: bug
 severity: error
-message: $X.equals(null) throws NullPointerException if $X is null — use
-  Objects.equals($X, null) or null == $X
+message: $X.equals(null) throws NullPointerException if $X is null — use Objects.equals($X, null) or null == $X
 rule:
   pattern: $X.equals(null)

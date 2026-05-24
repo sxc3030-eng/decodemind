@@ -2,7 +2,6 @@ id: php-passthru-call
 language: PHP
 category: security
 severity: error
-message: passthru() runs a shell command with raw output — command injection if
-  $CMD contains user input
+message: passthru() runs a shell command with raw output — command injection if $CMD contains user input
 rule:
   pattern: passthru($CMD)

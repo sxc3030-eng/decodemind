@@ -7,3 +7,4 @@ rule:
   pattern: |
     except Exception:
       pass
+# TODO: also catch bare `except: pass` and `except SomeError: pass` variants.

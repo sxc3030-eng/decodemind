@@ -2,8 +2,7 @@ id: kotlin-runblocking-on-main
 language: Kotlin
 category: bug
 severity: error
-message: runBlocking blocks the current thread — on the UI thread this causes
-  ANRs; use a coroutine scope instead
+message: runBlocking blocks the current thread — on the UI thread this causes ANRs; use a coroutine scope instead
 rule:
   pattern: |
     runBlocking { $$$BODY }

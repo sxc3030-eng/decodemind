@@ -2,7 +2,6 @@ id: kotlin-shared-prefs-mode-world
 language: Kotlin
 category: security
 severity: error
-message: getSharedPreferences with MODE_WORLD_READABLE/WRITABLE exposes data to
-  any app on the device — use MODE_PRIVATE
+message: getSharedPreferences with MODE_WORLD_READABLE/WRITABLE exposes data to any app on the device — use MODE_PRIVATE
 rule:
   pattern: $CTX.getSharedPreferences($NAME, MODE_WORLD_READABLE)

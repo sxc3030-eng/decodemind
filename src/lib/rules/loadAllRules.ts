@@ -68,8 +68,12 @@ export const EXT_TO_TREESITTER: Record<string, string> = {
 
 /** Load every YAML rule, keyed by source path. */
 function loadRuleSources(): { name: string; text: string }[] {
+  // Vite's static analyzer for `import.meta.glob` only resolves literal
+  // RELATIVE paths reliably. `@/` aliases will silently return an empty map
+  // in some build modes, which makes ast-grep dispatch fire with zero rules.
+  // Use a relative path from this file's own location.
   const mods = import.meta.glob<string>(
-    '@/lib/rules/definitions/**/*.yml',
+    './definitions/**/*.yml',
     { eager: true, query: '?raw', import: 'default' },
   );
   return Object.entries(mods).map(([name, text]) => ({ name, text }));

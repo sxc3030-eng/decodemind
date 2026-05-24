@@ -2,7 +2,6 @@ id: crypto-pickle-load
 language: Python
 category: security
 severity: error
-message: pickle.loads() deserializes arbitrary objects — remote code execution
-  if data is untrusted
+message: pickle.loads() deserializes arbitrary objects — remote code execution if data is untrusted
 rule:
   pattern: pickle.loads($X)

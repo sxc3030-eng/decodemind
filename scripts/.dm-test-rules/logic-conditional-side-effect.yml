@@ -5,3 +5,5 @@ severity: info
 message: Side effect inside conditional may not execute when expected
 rule:
   pattern: if ($COND) $STMT
+# TODO: broad approximation — ideally narrow to statements that are
+# function calls with side effects (setState, dispatch, db.save, etc.).

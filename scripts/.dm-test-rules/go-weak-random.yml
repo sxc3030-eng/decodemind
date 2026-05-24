@@ -2,7 +2,6 @@ id: go-weak-random
 language: Go
 category: security
 severity: warning
-message: math/rand is not cryptographically secure — use crypto/rand for tokens,
-  secrets, or session IDs
+message: math/rand is not cryptographically secure — use crypto/rand for tokens, secrets, or session IDs
 rule:
   pattern: rand.Intn($N)

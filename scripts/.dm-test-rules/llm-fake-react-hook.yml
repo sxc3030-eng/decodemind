@@ -2,10 +2,9 @@ id: llm-fake-react-hook
 language: TypeScript
 category: bug
 severity: warning
-message: useFetch/useDebounce are not React core hooks — common LLM
-  hallucination; install a library or implement them yourself
+message: useFetch/useDebounce are not React core hooks — common LLM hallucination; install a library or implement them yourself
 rule:
   pattern: $HOOK($X)
 constraints:
   HOOK:
-    regex: ^(useFetch|useDebounce)$
+    regex: '^(useFetch|useDebounce)$'

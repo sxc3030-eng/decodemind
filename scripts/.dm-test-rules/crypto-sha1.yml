@@ -2,7 +2,6 @@ id: crypto-sha1
 language: Python
 category: security
 severity: warning
-message: hashlib.sha1 is a weak hash algorithm — use SHA-256 or stronger for
-  security purposes
+message: hashlib.sha1 is a weak hash algorithm — use SHA-256 or stronger for security purposes
 rule:
   pattern: hashlib.sha1($$$)

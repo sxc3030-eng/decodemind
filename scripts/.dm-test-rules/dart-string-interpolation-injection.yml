@@ -2,9 +2,8 @@ id: dart-string-interpolation-injection
 language: Dart
 category: security
 severity: error
-message: SQL-like query built via string interpolation — use parameterized
-  queries (sqflite ? placeholders) instead
+message: SQL-like query built via string interpolation — use parameterized queries (sqflite ? placeholders) instead
 rule:
   pattern: $S
   kind: string_literal
-  regex: (?i)(SELECT|INSERT|UPDATE|DELETE)\s.*\$\{?[a-zA-Z_]
+  regex: '(?i)(SELECT|INSERT|UPDATE|DELETE)\s.*\$\{?[a-zA-Z_]'

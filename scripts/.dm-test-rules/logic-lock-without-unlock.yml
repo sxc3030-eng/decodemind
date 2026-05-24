@@ -7,3 +7,5 @@ rule:
   pattern: |
     $LOCK.acquire()
     $$$BODY
+# TODO: Only flag when not immediately inside a try/finally block.
+# ast-grep cannot inspect surrounding block structure with a simple pattern.

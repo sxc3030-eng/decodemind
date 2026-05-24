@@ -2,7 +2,6 @@ id: go-fmt-println-prod
 language: Go
 category: bug
 severity: info
-message: fmt.Println in production code — use the log package (or a structured
-  logger) for leveled, redirectable output
+message: fmt.Println in production code — use the log package (or a structured logger) for leveled, redirectable output
 rule:
   pattern: fmt.Println($X)

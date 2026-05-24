@@ -8,3 +8,5 @@ rule:
     async function $FN($$$PARAMS) {
       $$$BODY
     }
+# TODO: Cannot statically confirm there is no await in BODY with a simple pattern.
+# This matches all async functions; a post-filter checking absence of await is needed.

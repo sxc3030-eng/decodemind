@@ -2,8 +2,7 @@ id: bash-chmod-777
 language: Bash
 category: security
 severity: error
-message: chmod 777 grants world-writable + world-executable — anyone on the host
-  can modify or replace the file
+message: chmod 777 grants world-writable + world-executable — anyone on the host can modify or replace the file
 rule:
   any:
     - pattern: chmod 777 $X

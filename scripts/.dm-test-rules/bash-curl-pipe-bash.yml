@@ -2,8 +2,7 @@ id: bash-curl-pipe-bash
 language: Bash
 category: security
 severity: error
-message: Piping a download directly into a shell runs whatever the server
-  returns — supply-chain RCE risk
+message: Piping a download directly into a shell runs whatever the server returns — supply-chain RCE risk
 rule:
   any:
     - pattern: curl $URL | bash

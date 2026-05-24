@@ -5,3 +5,5 @@ severity: warning
 message: DataFrame.append() removed in pandas 2.0 — use pd.concat()
 rule:
   pattern: $DF.append($$$ARGS)
+# TODO: may false-positive on list/deque .append(); narrow by checking $DF naming
+# conventions (df, data_frame, etc.) in post-filter.

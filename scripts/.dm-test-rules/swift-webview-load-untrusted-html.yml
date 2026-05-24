@@ -2,7 +2,6 @@ id: swift-webview-load-untrusted-html
 language: Swift
 category: security
 severity: error
-message: loadHTMLString with baseURL nil — if the HTML contains user input,
-  attackers can run JS in your app context
+message: loadHTMLString with baseURL nil — if the HTML contains user input, attackers can run JS in your app context
 rule:
   pattern: "$WV.loadHTMLString($STR, baseURL: nil)"

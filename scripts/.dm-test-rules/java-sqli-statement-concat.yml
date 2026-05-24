@@ -2,7 +2,6 @@ id: java-sqli-statement-concat
 language: Java
 category: security
 severity: error
-message: Statement.executeQuery with concatenated SQL — classic SQL injection;
-  use PreparedStatement with placeholders
+message: Statement.executeQuery with concatenated SQL — classic SQL injection; use PreparedStatement with placeholders
 rule:
   pattern: $STMT.executeQuery("SELECT " + $V)

@@ -2,7 +2,6 @@ id: dart-weak-random
 language: Dart
 category: security
 severity: warning
-message: Random() is not cryptographically secure — use Random.secure() for
-  tokens, IDs, or anything security-sensitive
+message: Random() is not cryptographically secure — use Random.secure() for tokens, IDs, or anything security-sensitive
 rule:
   pattern: Random()

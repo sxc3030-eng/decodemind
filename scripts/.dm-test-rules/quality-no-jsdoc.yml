@@ -5,3 +5,4 @@ severity: info
 message: Exported function without JSDoc
 rule:
   pattern: export function $FN($$$PARAMS)
+# TODO: Cannot check that a JSDoc comment precedes the function via ast-grep pattern alone.

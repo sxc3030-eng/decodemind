@@ -2,7 +2,6 @@ id: injection-exec
 language: Python
 category: security
 severity: error
-message: exec() executes arbitrary Python code — code injection if input is
-  user-controlled
+message: exec() executes arbitrary Python code — code injection if input is user-controlled
 rule:
   pattern: exec($X)

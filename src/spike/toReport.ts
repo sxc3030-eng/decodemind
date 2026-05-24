@@ -19,8 +19,10 @@ const V1_EXPL = enExplanations as Record<string, ExplanationEntry>;
 // so finding lookup is a flat O(1) by rule id.
 //
 // The query string `?json` tells Vite to import the JSON as a parsed module.
+// Use a relative path — Vite's `@/` alias is unreliable inside import.meta.glob
+// (the static analyzer doesn't always resolve aliases, returning {} silently).
 const v2ExplGlob = import.meta.glob<Record<string, ExplanationEntry>>(
-  '@/lib/rules/explanations/*.en.json',
+  '../lib/rules/explanations/*.en.json',
   { eager: true, import: 'default' },
 );
 

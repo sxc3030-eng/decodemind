@@ -2,7 +2,6 @@ id: dart-print-sensitive
 language: Dart
 category: security
 severity: info
-message: print() statement found — output goes to device logs in release builds;
-  use a proper logger like the logger package
+message: print() statement found — output goes to device logs in release builds; use a proper logger like the logger package
 rule:
   pattern: print($MSG)

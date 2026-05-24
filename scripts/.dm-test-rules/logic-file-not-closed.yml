@@ -5,3 +5,4 @@ severity: warning
 message: open() without with-statement may leak file descriptors
 rule:
   pattern: $VAR = open($$$)
+# TODO: this also flags `with open(...) as f` if assigned outside with — refine later.

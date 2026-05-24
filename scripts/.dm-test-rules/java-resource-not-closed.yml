@@ -2,7 +2,6 @@ id: java-resource-not-closed
 language: Java
 category: bug
 severity: warning
-message: new FileInputStream(...) outside try-with-resources — file handle may
-  leak on exception
+message: new FileInputStream(...) outside try-with-resources — file handle may leak on exception
 rule:
   pattern: new FileInputStream($PATH)

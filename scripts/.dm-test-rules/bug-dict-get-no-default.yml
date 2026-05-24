@@ -5,3 +5,4 @@ severity: info
 message: dict.get() without default returns None — caller may not handle it
 rule:
   pattern: $DICT.get($KEY)
+# TODO: exclude cases where the result is explicitly compared to None.

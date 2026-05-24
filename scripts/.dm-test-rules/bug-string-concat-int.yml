@@ -5,3 +5,5 @@ severity: error
 message: Implicit string + int concatenation will TypeError
 rule:
   pattern: $STR + $NUM
+# TODO: This is a broad approximation — ast-grep cannot determine types.
+# Ideally narrow to cases where one operand is a string literal and the other is an int literal.

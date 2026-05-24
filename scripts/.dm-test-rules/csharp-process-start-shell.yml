@@ -2,7 +2,6 @@ id: csharp-process-start-shell
 language: C#
 category: security
 severity: error
-message: Process.Start with a variable command — command injection if the value
-  is user-controlled; pass arguments via ProcessStartInfo.ArgumentList
+message: Process.Start with a variable command — command injection if the value is user-controlled; pass arguments via ProcessStartInfo.ArgumentList
 rule:
   pattern: Process.Start($CMD)

@@ -2,7 +2,6 @@ id: php-loose-equality
 language: PHP
 category: bug
 severity: warning
-message: Loose comparison == in PHP performs type juggling with surprising
-  results — prefer strict === / !==
+message: Loose comparison == in PHP performs type juggling with surprising results — prefer strict === / !==
 rule:
   pattern: $A == $B

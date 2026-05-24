@@ -2,7 +2,6 @@ id: ruby-eval-call
 language: Ruby
 category: security
 severity: error
-message: eval() executes its argument as Ruby code — full RCE if any user input
-  reaches $X
+message: eval() executes its argument as Ruby code — full RCE if any user input reaches $X
 rule:
   pattern: eval($X)

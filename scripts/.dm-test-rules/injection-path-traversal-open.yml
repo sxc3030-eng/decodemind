@@ -2,8 +2,7 @@ id: injection-path-traversal-open
 language: Python
 category: security
 severity: warning
-message: open() with path built from variable — path traversal risk if variable
-  is user-controlled
+message: open() with path built from variable — path traversal risk if variable is user-controlled
 rule:
   pattern: open($PATH)
   has:

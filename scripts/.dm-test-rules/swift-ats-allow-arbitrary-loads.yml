@@ -2,7 +2,6 @@ id: swift-ats-allow-arbitrary-loads
 language: Swift
 category: security
 severity: error
-message: NSAllowsArbitraryLoads enabled — disables App Transport Security and
-  permits plaintext HTTP on iOS
+message: NSAllowsArbitraryLoads enabled — disables App Transport Security and permits plaintext HTTP on iOS
 rule:
   pattern: '"NSAllowsArbitraryLoads": true'

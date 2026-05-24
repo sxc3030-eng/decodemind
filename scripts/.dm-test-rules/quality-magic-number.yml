@@ -5,3 +5,5 @@ severity: info
 message: Magic number literal — extract to a named constant
 rule:
   pattern: $VAR = $NUM
+# TODO: This is very broad. Ideally match only numeric literals >= 2 that appear
+# inside function bodies, not at module level constant assignments.

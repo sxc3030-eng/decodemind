@@ -2,8 +2,7 @@ id: csharp-async-void
 language: C#
 category: bug
 severity: warning
-message: async void method — exceptions cannot be awaited and crash the process;
-  return Task unless this is an event handler
+message: async void method — exceptions cannot be awaited and crash the process; return Task unless this is an event handler
 rule:
   pattern: |
     async void $METHOD($$$ARGS) {

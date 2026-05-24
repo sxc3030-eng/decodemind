@@ -2,7 +2,6 @@ id: kotlin-println-prod
 language: Kotlin
 category: quality
 severity: info
-message: println in production code — use Timber or android.util.Log so output
-  can be filtered and stripped in release
+message: println in production code — use Timber or android.util.Log so output can be filtered and stripped in release
 rule:
   pattern: println($X)

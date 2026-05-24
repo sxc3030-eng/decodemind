@@ -2,8 +2,7 @@ id: php-error-reporting-display-prod
 language: PHP
 category: security
 severity: warning
-message: ini_set('display_errors', '1') leaks stack traces and file paths —
-  disable in production
+message: ini_set('display_errors', '1') leaks stack traces and file paths — disable in production
 rule:
   any:
     - pattern: ini_set('display_errors', '1')

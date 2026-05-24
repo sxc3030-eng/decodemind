@@ -2,12 +2,11 @@ id: php-include-variable
 language: PHP
 category: security
 severity: error
-message: include with a variable path — Local/Remote File Inclusion if $X is
-  user-controlled
+message: include with a variable path — Local/Remote File Inclusion if $X is user-controlled
 rule:
   any:
     - pattern: include $X;
     - pattern: require $X;
 constraints:
   X:
-    regex: ^\$
+    regex: '^\$'

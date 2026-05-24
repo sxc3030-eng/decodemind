@@ -2,7 +2,6 @@ id: crypto-weak-random
 language: Python
 category: security
 severity: warning
-message: random.random() is not cryptographically secure — use the secrets
-  module for security-sensitive randomness
+message: random.random() is not cryptographically secure — use the secrets module for security-sensitive randomness
 rule:
   pattern: random.random()

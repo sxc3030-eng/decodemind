@@ -2,8 +2,7 @@ id: php-echo-superglobal-xss
 language: PHP
 category: security
 severity: error
-message: echo of $_GET/$_POST/$_REQUEST value — XSS, escape with
-  htmlspecialchars() before output
+message: echo of $_GET/$_POST/$_REQUEST value — XSS, escape with htmlspecialchars() before output
 rule:
   any:
     - pattern: echo $_GET[$X];

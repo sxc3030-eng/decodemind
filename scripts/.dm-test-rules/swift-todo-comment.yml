@@ -5,3 +5,5 @@ severity: info
 message: TODO or FIXME comment — track outside source if not actionable
 rule:
   pattern: $ANY
+# Note: ast-grep does not match comments via standard pattern syntax.
+# Placeholder; real detection requires regex on raw source text.

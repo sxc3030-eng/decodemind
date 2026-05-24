@@ -4,4 +4,11 @@ category: bug
 severity: warning
 message: React array element without key prop — re-render bugs
 rule:
-  pattern: $ARR.map(($ITEM) => <$TAG $$$PROPS>$$$CHILDREN</$TAG>)
+  kind: call_expression
+  pattern: $ARR.map($CB)
+# Note: pattern intentionally broad — ast-grep CLI can't combine a JSX-element
+# matcher with absence-of-prop in $$$PROPS in one expression. This catches any
+# `.map(cb)` call so the linter author can manually check whether the callback
+# returns JSX without a `key` prop. False positives are expected on non-JSX
+# maps. V3 backlog: pair with a follow-up rule that inspects the callback
+# body via `inside:` once we have a return-value matcher.

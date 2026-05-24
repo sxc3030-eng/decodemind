@@ -5,3 +5,4 @@ severity: warning
 message: Array.prototype.includes(NaN) returns false unreliably
 rule:
   pattern: $ARR.includes(NaN)
+# TODO: also match indexOf(NaN) which has the same pitfall.

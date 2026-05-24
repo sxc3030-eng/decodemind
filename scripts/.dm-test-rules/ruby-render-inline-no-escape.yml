@@ -2,7 +2,6 @@ id: ruby-render-inline-no-escape
 language: Ruby
 category: security
 severity: error
-message: "render inline: with a variable template — server-side template
-  injection / XSS if $X is user-controlled"
+message: "render inline: with a variable template — server-side template injection / XSS if $X is user-controlled"
 rule:
   pattern: "render inline: $X"

@@ -2,8 +2,7 @@ id: ruby-system-call-shell
 language: Ruby
 category: security
 severity: error
-message: system() with a variable argument — command injection risk; pass
-  arguments as an array (system("cmd", arg1, arg2))
+message: system() with a variable argument — command injection risk; pass arguments as an array (system("cmd", arg1, arg2))
 rule:
   pattern: system($X)
 constraints:

@@ -2,8 +2,7 @@ id: bash-todo-comment
 language: Bash
 category: quality
 severity: info
-message: TODO / FIXME comment — track in an issue tracker rather than leaving in
-  the script
+message: TODO / FIXME comment — track in an issue tracker rather than leaving in the script
 rule:
   kind: comment
-  regex: (TODO|FIXME|XXX|HACK)
+  regex: '(TODO|FIXME|XXX|HACK)'

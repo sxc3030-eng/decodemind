@@ -2,7 +2,6 @@ id: ws-auth-no-token
 language: Python
 category: security
 severity: error
-message: WebSocket accepts connections without authentication token — session
-  hijack risk
+message: WebSocket accepts connections without authentication token — session hijack risk
 rule:
   pattern: websockets.serve($HANDLER, $HOST, $PORT)

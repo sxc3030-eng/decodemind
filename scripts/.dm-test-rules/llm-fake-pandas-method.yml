@@ -7,4 +7,4 @@ rule:
   pattern: $DF.$METHOD($$$ARGS)
 constraints:
   METHOD:
-    regex: ^(read_excel_advanced|to_clean_csv|drop_duplicates_inplace|smart_merge|fast_concat)$
+    regex: '^(read_excel_advanced|to_clean_csv|drop_duplicates_inplace|smart_merge|fast_concat)$'

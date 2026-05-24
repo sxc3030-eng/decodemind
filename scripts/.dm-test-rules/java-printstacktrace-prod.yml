@@ -2,7 +2,6 @@ id: java-printstacktrace-prod
 language: Java
 category: security
 severity: warning
-message: e.printStackTrace() leaks internal stack traces — log via a proper
-  logger and return a sanitized error to the client
+message: e.printStackTrace() leaks internal stack traces — log via a proper logger and return a sanitized error to the client
 rule:
   pattern: $E.printStackTrace()

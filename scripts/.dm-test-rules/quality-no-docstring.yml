@@ -7,3 +7,5 @@ rule:
   pattern: |
     def $FN($$$PARAMS):
       $$$BODY
+# TODO: Cannot check absence of docstring (first statement being a string literal)
+# with a simple positive pattern. A negative-match rule would be needed.

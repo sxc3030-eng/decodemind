@@ -5,3 +5,4 @@ severity: info
 message: typeof null returns 'object' — check explicitly for null
 rule:
   pattern: typeof $VAR === "object"
+# TODO: only flag when the result is used in a truthy branch without a null guard.

@@ -7,3 +7,5 @@ rule:
   pattern: |
     def $FN($$$PARAMS):
       $$$BODY
+# TODO: ast-grep pattern matching cannot count lines. This matches every function.
+# Use a post-filter on $$$BODY line count to enforce a threshold (e.g. > 50 lines).

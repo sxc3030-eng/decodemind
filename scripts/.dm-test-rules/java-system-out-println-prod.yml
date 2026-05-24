@@ -2,7 +2,6 @@ id: java-system-out-println-prod
 language: Java
 category: quality
 severity: info
-message: System.out.println in production code — use a proper logger (SLF4J,
-  java.util.logging) for structured output
+message: System.out.println in production code — use a proper logger (SLF4J, java.util.logging) for structured output
 rule:
   pattern: System.out.println($X)

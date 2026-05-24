@@ -5,3 +5,4 @@ severity: warning
 message: Using == instead of === can produce surprising results
 rule:
   pattern: $A == $B
+# TODO: also catch != (loose not-equal). Exclude == null idiom used intentionally.

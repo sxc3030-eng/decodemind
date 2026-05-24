@@ -2,10 +2,9 @@ id: xss-href-javascript
 language: JavaScript
 category: security
 severity: error
-message: "href assigned a javascript: URL — XSS risk; validate that href values
-  are not javascript: protocol"
+message: "href assigned a javascript: URL — XSS risk; validate that href values are not javascript: protocol"
 rule:
   pattern: $EL.href = $X
 constraints:
   X:
-    regex: "javascript:"
+    regex: 'javascript:'

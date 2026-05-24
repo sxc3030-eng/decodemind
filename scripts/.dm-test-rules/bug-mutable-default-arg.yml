@@ -7,3 +7,4 @@ rule:
   pattern: |
     def $FN($$$ARGS, $ARG=[]):
       $$$BODY
+# TODO: also catch ={} dict default and =set() default
