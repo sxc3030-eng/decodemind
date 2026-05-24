@@ -9,6 +9,6 @@ rule:
     - pattern: rm -fr $DIR
     - pattern: rm -r $DIR
     - pattern: rm -rf $$$ARGS
-  constraints:
-    DIR:
-      regex: '^\$[A-Za-z_][A-Za-z0-9_]*$'
+constraints:
+  DIR:
+    regex: '^\$[A-Za-z_][A-Za-z0-9_]*$'

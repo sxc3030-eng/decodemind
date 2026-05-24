@@ -1,0 +1,8 @@
+id: java-deserialization-readobject
+language: Java
+category: security
+severity: error
+message: ObjectInputStream.readObject() without a filter — untrusted
+  deserialization can lead to RCE
+rule:
+  pattern: $OIS.readObject()

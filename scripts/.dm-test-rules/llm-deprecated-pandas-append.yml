@@ -1,0 +1,7 @@
+id: llm-deprecated-pandas-append
+language: Python
+category: bug
+severity: warning
+message: DataFrame.append() removed in pandas 2.0 — use pd.concat()
+rule:
+  pattern: $DF.append($$$ARGS)

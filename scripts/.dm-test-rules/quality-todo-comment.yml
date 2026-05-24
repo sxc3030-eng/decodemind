@@ -1,0 +1,7 @@
+id: quality-todo-comment
+language: JavaScript
+category: quality
+severity: info
+message: TODO comment found — track outside source if not actionable
+rule:
+  pattern: $ANY

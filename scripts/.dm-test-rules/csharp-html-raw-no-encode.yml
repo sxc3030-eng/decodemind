@@ -1,0 +1,8 @@
+id: csharp-html-raw-no-encode
+language: C#
+category: security
+severity: error
+message: "@Html.Raw bypasses Razor's HTML encoding — XSS risk if the value is
+  user-controlled; render without Raw or sanitize first"
+rule:
+  pattern: Html.Raw($V)

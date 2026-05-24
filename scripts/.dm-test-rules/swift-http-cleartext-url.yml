@@ -1,0 +1,11 @@
+id: swift-http-cleartext-url
+language: Swift
+category: security
+severity: warning
+message: URL initialised with cleartext HTTP — traffic is unencrypted and ATS
+  will block it in production
+rule:
+  pattern: "URL(string: $URL)"
+constraints:
+  URL:
+    regex: ^"http://

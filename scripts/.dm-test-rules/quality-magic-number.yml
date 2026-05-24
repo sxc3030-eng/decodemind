@@ -1,0 +1,7 @@
+id: quality-magic-number
+language: Python
+category: quality
+severity: info
+message: Magic number literal — extract to a named constant
+rule:
+  pattern: $VAR = $NUM

@@ -5,6 +5,6 @@ severity: error
 message: exec.Command with a variable command name — command injection if $CMD is user-controlled; hardcode the binary path
 rule:
   pattern: exec.Command($CMD, $$$ARGS)
-  constraints:
-    CMD:
-      kind: identifier
+constraints:
+  CMD:
+    kind: identifier

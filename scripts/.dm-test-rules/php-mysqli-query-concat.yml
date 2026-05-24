@@ -1,0 +1,10 @@
+id: php-mysqli-query-concat
+language: PHP
+category: security
+severity: error
+message: mysqli_query with string concatenation — SQL injection, use prepared
+  statements with bound parameters
+rule:
+  any:
+    - pattern: mysqli_query($CONN, $Q . $V)
+    - pattern: $CONN->query($Q . $V)

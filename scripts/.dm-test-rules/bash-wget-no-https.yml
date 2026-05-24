@@ -1,0 +1,15 @@
+id: bash-wget-no-https
+language: Bash
+category: security
+severity: warning
+message: Downloading over plain HTTP — content can be tampered with by anyone
+  between you and the server
+rule:
+  any:
+    - pattern: wget $URL
+    - pattern: curl $URL
+    - pattern: wget $$$ARGS $URL
+    - pattern: curl $$$ARGS $URL
+constraints:
+  URL:
+    regex: ^["']?http://

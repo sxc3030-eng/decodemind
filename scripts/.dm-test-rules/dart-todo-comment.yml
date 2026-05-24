@@ -1,0 +1,7 @@
+id: dart-todo-comment
+language: Dart
+category: quality
+severity: info
+message: TODO or FIXME comment — track outside source if not actionable
+rule:
+  pattern: $ANY

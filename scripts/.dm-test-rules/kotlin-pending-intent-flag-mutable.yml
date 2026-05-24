@@ -1,0 +1,8 @@
+id: kotlin-pending-intent-flag-mutable
+language: Kotlin
+category: security
+severity: error
+message: PendingIntent with FLAG_MUTABLE lets other apps modify the Intent — use
+  FLAG_IMMUTABLE on Android 12+
+rule:
+  pattern: PendingIntent.getActivity($CTX, $REQ, $INTENT, FLAG_MUTABLE)

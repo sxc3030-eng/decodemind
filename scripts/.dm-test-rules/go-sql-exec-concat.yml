@@ -1,0 +1,8 @@
+id: go-sql-exec-concat
+language: Go
+category: security
+severity: error
+message: db.Exec with concatenated SQL — SQL injection risk; use parameterized
+  queries with placeholders
+rule:
+  pattern: $DB.Exec("INSERT " + $V)

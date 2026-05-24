@@ -1,0 +1,8 @@
+id: java-runtime-exec-user-input
+language: Java
+category: security
+severity: error
+message: Runtime.getRuntime().exec($CMD) with a variable command — command
+  injection if $CMD is user-controlled
+rule:
+  pattern: Runtime.getRuntime().exec($CMD)

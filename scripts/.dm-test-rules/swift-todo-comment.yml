@@ -1,0 +1,7 @@
+id: swift-todo-comment
+language: Swift
+category: quality
+severity: info
+message: TODO or FIXME comment — track outside source if not actionable
+rule:
+  pattern: $ANY

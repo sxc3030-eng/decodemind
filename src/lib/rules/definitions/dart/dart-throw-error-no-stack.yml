@@ -5,6 +5,6 @@ severity: warning
 message: Throwing a string literal — Dart allows it but you lose stack-trace and type info; throw an Exception or Error subclass
 rule:
   pattern: throw $S
-  constraints:
-    S:
-      regex: '^["'']'
+constraints:
+  S:
+    regex: '^["'']'

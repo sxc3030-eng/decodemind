@@ -9,6 +9,6 @@ rule:
     - pattern: curl $URL
     - pattern: wget $$$ARGS $URL
     - pattern: curl $$$ARGS $URL
-  constraints:
-    URL:
-      regex: '^["'']?http://'
+constraints:
+  URL:
+    regex: '^["'']?http://'

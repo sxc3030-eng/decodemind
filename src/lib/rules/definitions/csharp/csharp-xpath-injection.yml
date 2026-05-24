@@ -5,6 +5,6 @@ severity: error
 message: XPath expression built from a variable — XPath injection if the value is user-controlled; use parameterized XPath via XmlNamespaceManager + variables
 rule:
   pattern: $NODE.SelectNodes($EXPR)
-  constraints:
-    EXPR:
-      regex: '^[A-Za-z_]\w*$'
+constraints:
+  EXPR:
+    regex: '^[A-Za-z_]\w*$'

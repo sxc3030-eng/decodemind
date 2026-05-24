@@ -1,0 +1,9 @@
+id: bug-unused-exception
+language: Python
+category: bug
+severity: warning
+message: Caught exception is never referenced — silent failure risk
+rule:
+  pattern: |
+    except Exception:
+      pass

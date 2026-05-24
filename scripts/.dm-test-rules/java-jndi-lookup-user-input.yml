@@ -1,0 +1,8 @@
+id: java-jndi-lookup-user-input
+language: Java
+category: security
+severity: error
+message: JNDI lookup with a variable name — Log4Shell-style RCE if attacker
+  controls the name
+rule:
+  pattern: $CTX.lookup($X)

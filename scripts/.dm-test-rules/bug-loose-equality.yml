@@ -1,0 +1,7 @@
+id: bug-loose-equality
+language: JavaScript
+category: bug
+severity: warning
+message: Using == instead of === can produce surprising results
+rule:
+  pattern: $A == $B

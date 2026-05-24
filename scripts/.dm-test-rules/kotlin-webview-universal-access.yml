@@ -1,0 +1,8 @@
+id: kotlin-webview-universal-access
+language: Kotlin
+category: security
+severity: error
+message: WebView allowUniversalAccessFromFileURLs bypasses same-origin — local
+  files can read any URL
+rule:
+  pattern: $WV.settings.allowUniversalAccessFromFileURLs = true

@@ -1,0 +1,7 @@
+id: llm-deprecated-react-lifecycle
+language: TypeScript
+category: bug
+severity: warning
+message: componentWillMount is deprecated — use UNSAFE_ prefix or hooks
+rule:
+  pattern: componentWillMount()

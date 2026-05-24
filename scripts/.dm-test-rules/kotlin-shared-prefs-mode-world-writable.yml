@@ -1,0 +1,8 @@
+id: kotlin-shared-prefs-mode-world-writable
+language: Kotlin
+category: security
+severity: error
+message: getSharedPreferences with MODE_WORLD_WRITABLE lets any app overwrite
+  your data — use MODE_PRIVATE
+rule:
+  pattern: $CTX.getSharedPreferences($NAME, MODE_WORLD_WRITABLE)

@@ -5,6 +5,6 @@ severity: warning
 message: Token stored via SharedPreferences — auth tokens belong in flutter_secure_storage (Keychain/Keystore), not plain prefs
 rule:
   pattern: $P.setString($KEY, $V)
-  constraints:
-    KEY:
-      regex: '(?i)["''](token|access_token|refresh_token|jwt|bearer|session)'
+constraints:
+  KEY:
+    regex: '(?i)["''](token|access_token|refresh_token|jwt|bearer|session)'

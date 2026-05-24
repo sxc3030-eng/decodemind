@@ -1,0 +1,10 @@
+id: dart-http-cleartext-url
+language: Dart
+category: security
+severity: warning
+message: Cleartext HTTP URL — traffic is unencrypted and Android/iOS block it in
+  production by default
+rule:
+  pattern: $S
+  kind: string_literal
+  regex: ^["'](http://)

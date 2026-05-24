@@ -4,4 +4,4 @@ category: security
 severity: error
 message: URLSession delegate accepts any TLS certificate — disables HTTPS protection and allows MITM
 rule:
-  pattern: $CB(.useCredential, URLCredential(trust: $TRUST))
+  pattern: "$CB(.useCredential, URLCredential(trust: $TRUST))"

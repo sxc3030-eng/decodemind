@@ -1,0 +1,7 @@
+id: bug-missing-await
+language: TypeScript
+category: bug
+severity: warning
+message: Async function call result used without await
+rule:
+  pattern: const $VAR = $FN($$$ARGS)

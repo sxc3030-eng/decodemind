@@ -5,6 +5,6 @@ severity: error
 message: "href assigned a javascript: URL — XSS risk; validate that href values are not javascript: protocol"
 rule:
   pattern: $EL.href = $X
-  constraints:
-    X:
-      regex: 'javascript:'
+constraints:
+  X:
+    regex: 'javascript:'

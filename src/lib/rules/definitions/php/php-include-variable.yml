@@ -7,6 +7,6 @@ rule:
   any:
     - pattern: include $X;
     - pattern: require $X;
-  constraints:
-    X:
-      regex: '^\$'
+constraints:
+  X:
+    regex: '^\$'

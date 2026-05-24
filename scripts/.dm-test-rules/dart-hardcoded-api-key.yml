@@ -1,0 +1,13 @@
+id: dart-hardcoded-api-key
+language: Dart
+category: security
+severity: error
+message: Hardcoded secret in source — load from secure storage, environment, or
+  build-time config instead
+rule:
+  pattern: const $VAR = $VALUE
+constraints:
+  VAR:
+    regex: (?i)(apiKey|api_key|secret|token|password|accessKey|access_key|privateKey|private_key)
+  VALUE:
+    regex: ^["'][^"']{8,}["']$

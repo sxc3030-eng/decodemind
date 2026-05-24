@@ -1,0 +1,10 @@
+id: dart-empty-catch
+language: Dart
+category: bug
+severity: warning
+message: Empty catch block — errors are swallowed silently; at minimum log the
+  error or rethrow
+rule:
+  pattern: |
+    catch ($E) {
+    }

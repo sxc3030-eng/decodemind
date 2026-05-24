@@ -1,0 +1,8 @@
+id: kotlin-webview-js-enabled
+language: Kotlin
+category: security
+severity: warning
+message: WebView JavaScript enabled — only enable if needed and never load
+  untrusted content
+rule:
+  pattern: $WV.settings.javaScriptEnabled = true

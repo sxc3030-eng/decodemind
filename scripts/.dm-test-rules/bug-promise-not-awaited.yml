@@ -1,0 +1,7 @@
+id: bug-promise-not-awaited
+language: TypeScript
+category: bug
+severity: warning
+message: Promise returned by async function is not handled
+rule:
+  pattern: $OBJ.$METHOD($$$ARGS)

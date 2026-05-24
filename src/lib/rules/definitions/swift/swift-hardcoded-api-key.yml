@@ -5,8 +5,8 @@ severity: error
 message: Hardcoded secret in source — embed via secure config, environment, or Keychain at runtime
 rule:
   pattern: let $VAR = $VALUE
-  constraints:
-    VAR:
-      regex: '(?i)(apiKey|secret|token|password|accessKey|privateKey)'
-    VALUE:
-      regex: '^"[^"]{8,}"$'
+constraints:
+  VAR:
+    regex: '(?i)(apiKey|secret|token|password|accessKey|privateKey)'
+  VALUE:
+    regex: '^"[^"]{8,}"$'

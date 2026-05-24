@@ -1,0 +1,8 @@
+id: ruby-yaml-load-untrusted
+language: Ruby
+category: security
+severity: error
+message: YAML.load on untrusted input can instantiate arbitrary objects — RCE
+  risk; use YAML.safe_load instead
+rule:
+  pattern: YAML.load($X)

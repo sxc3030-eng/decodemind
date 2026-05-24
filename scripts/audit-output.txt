@@ -1,0 +1,80 @@
+==============================================================================
+ DecodeMind V2.1 Python rule audit
+==============================================================================
+Target file : D:\decodemind\tests\fixtures\python\broken_python.py
+Rules dir   : D:\decodemind\src\lib\rules\definitions
+
+[parse] D:\decodemind\src\lib\rules\definitions\ruby\ruby-render-inline-no-escape.yml: Nested mappings are not allowed in compact mappings at line 5, column 10:
+
+message: render inline: with a variable template — server-side template injecti…
+         ^
+
+[parse] D:\decodemind\src\lib\rules\definitions\swift\swift-eval-via-nsexpression.yml: Nested mappings are not allowed in compact mappings at line 7, column 12:
+
+  pattern: NSExpression(format: $S)
+           ^
+
+[parse] D:\decodemind\src\lib\rules\definitions\swift\swift-http-cleartext-url.yml: Nested mappings are not allowed in compact mappings at line 7, column 12:
+
+  pattern: URL(string: $URL)
+           ^
+
+[parse] D:\decodemind\src\lib\rules\definitions\swift\swift-trust-all-cert.yml: Nested mappings are not allowed in compact mappings at line 7, column 12:
+
+  pattern: $CB(.useCredential, URLCredential(trust: $TRUST))
+           ^
+
+[parse] D:\decodemind\src\lib\rules\definitions\swift\swift-userdefaults-secret.yml: Nested mappings are not allowed in compact mappings at line 7, column 12:
+
+  pattern: UserDefaults.standard.set($V, forKey: $KEY)
+           ^
+
+[parse] D:\decodemind\src\lib\rules\definitions\swift\swift-webview-load-untrusted-html.yml: Nested mappings are not allowed in compact mappings at line 7, column 12:
+
+  pattern: $WV.loadHTMLString($STR, baseURL: nil)
+           ^
+
+Loaded 34 Python rules.
+
+[MATCH   ] bug-dict-get-no-default                  $DICT.get($KEY)   L13:12-L13:61
+[no-match] bug-mutable-default-arg                  def $FN($$$ARGS, $ARG=[]):
+  $$$BODY
+
+[no-match] bug-off-by-one-range                     range(1, len($ARR))
+[no-match] bug-string-concat-int                    $STR + $NUM
+[ERROR   ] bug-unused-exception                     except Exception:
+  pass
+
+           stderr: Error: Cannot parse rule C:\Users\sxc_2\AppData\Local\Temp\dm-audit-ns7p0M\rule.yml
+[MATCH   ] crypto-hardcoded-secret                  $VAR = $VALUE   L7:1-L7:32
+[MATCH   ] crypto-md5                               hashlib.md5($$$)   L21:12-L21:36
+[no-match] crypto-pickle-load                       pickle.loads($X)
+[no-match] crypto-sha1                              hashlib.sha1($$$)
+[no-match] crypto-weak-random                       random.random()
+[no-match] crypto-yaml-load                         yaml.load($X)
+[no-match] injection-eval                           eval($X)
+[no-match] injection-exec                           exec($X)
+[MATCH   ] injection-os-system                      os.system($CMD)   L17:5-L17:19
+[no-match] injection-path-traversal-open            open($PATH)
+[no-match] injection-shell-true                     subprocess.run($CMD, shell=True)
+[no-match] injection-sql-concat                     cursor.execute("SELECT " + $X)
+[no-match] injection-sql-f-string                   cursor.execute(f"$$$")
+[no-match] injection-subprocess-shell-true          subprocess.Popen($CMD, shell=True)
+[no-match] llm-deprecated-pandas-append             $DF.append($$$ARGS)
+[no-match] llm-fake-numpy-fast-dot                  np.fast_dot($$$ARGS)
+[no-match] llm-fake-pandas-clean-csv                $DF.to_clean_csv($$$ARGS)
+[no-match] llm-fake-pandas-method                   $DF.$METHOD($$$ARGS)
+[no-match] logic-file-not-closed                    $VAR = open($$$)
+[ERROR   ] logic-lock-without-unlock                $LOCK.acquire()
+$$$BODY
+
+           stderr: Error: Cannot parse rule C:\Users\sxc_2\AppData\Local\Temp\dm-audit-H7tK50\rule.yml
+[MATCH   ] quality-long-function                    def $FN($$$PARAMS):
+  $$$BODY
+   L3:1-L3:23 L9:1-L10:30 L12:1-L13:61 L16:1-L17:19 L20:1-L21:48
+[MATCH   ] quality-magic-number                     $VAR = $NUM   L4:1-L4:52 L7:1-L7:32
+[MATCH   ] quality-no-docstring                     def $FN($$$PARAMS):
+  $$$BODY
+   L3:1-L3:23 L9:1-L10:30 L12:1-L13:61 L16:1-L17:19 L20:1-L21:48
+[ERROR   ] quality-too-many-args                    def $FN($A, $B, $C, $D, $E, $$$REST)
+           stderr: Error: Cannot parse rule C:\Users\sxc_2\AppData\Local\Temp\dm-audit-qZWjN2\rule.yml

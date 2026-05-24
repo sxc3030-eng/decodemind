@@ -1,0 +1,7 @@
+id: quality-no-jsdoc
+language: TypeScript
+category: quality
+severity: info
+message: Exported function without JSDoc
+rule:
+  pattern: export function $FN($$$PARAMS)

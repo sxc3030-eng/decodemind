@@ -1,0 +1,8 @@
+id: php-weak-hash-sha1
+language: PHP
+category: security
+severity: warning
+message: sha1() is collision-broken — use hash('sha256', ...) or password_hash()
+  for credentials
+rule:
+  pattern: sha1($X)

@@ -1,0 +1,7 @@
+id: quality-any-type
+language: TypeScript
+category: quality
+severity: info
+message: Using `any` defeats type checking
+rule:
+  pattern: "$VAR: any"

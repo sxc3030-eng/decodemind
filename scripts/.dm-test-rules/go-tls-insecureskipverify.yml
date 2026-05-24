@@ -1,0 +1,8 @@
+id: go-tls-insecureskipverify
+language: Go
+category: security
+severity: error
+message: tls.Config with InsecureSkipVerify=true disables certificate validation
+  — vulnerable to man-in-the-middle attacks
+rule:
+  pattern: "InsecureSkipVerify: true"

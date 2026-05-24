@@ -1,0 +1,37 @@
+# EXPECTED FINDINGS:
+# - line 23: yaml-k8s-image-tag-latest — quality — image uses :latest tag
+# - line 25: yaml-k8s-privileged-true — security — privileged: true
+# - line 26: yaml-k8s-runasuser-root — security — runAsUser: 0
+# - line 27: yaml-k8s-runasnonroot-false — security — runAsNonRoot: false
+# - line 28: yaml-k8s-allowprivilegeescalation-true — security — allowPrivilegeEscalation: true
+# - line 29: yaml-k8s-readonlyrootfs-false — security — readOnlyRootFilesystem: false
+# - line 31: yaml-k8s-capabilities-add-all — security — capabilities.add includes ALL
+# - line 35: yaml-k8s-host-network — security — hostNetwork: true
+# - line 36: yaml-k8s-host-pid — security — hostPID: true
+# - line 37: yaml-k8s-host-ipc — security — hostIPC: true
+# - line 14: yaml-k8s-no-resources-limits — quality — no resources.limits set (file-level)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: buggy
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: app
+          image: nginx:latest
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: true
+            readOnlyRootFilesystem: false
+            capabilities:
+              add:
+                - ALL
+              drop:
+                - NET_RAW
+      hostNetwork: true
+      hostPID: true
+      hostIPC: true

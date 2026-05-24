@@ -1,0 +1,8 @@
+id: kotlin-runtime-exec
+language: Kotlin
+category: security
+severity: error
+message: Runtime.getRuntime().exec executes a shell command — avoid; if needed,
+  pass an array and never interpolate user input
+rule:
+  pattern: Runtime.getRuntime().exec($CMD)

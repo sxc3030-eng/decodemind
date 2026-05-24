@@ -1,0 +1,16 @@
+id: bash-test-string-no-quotes
+language: Bash
+category: bug
+severity: warning
+message: Variables in a [ test ] should be double-quoted — empty or whitespace
+  values break the comparison and may throw a syntax error
+rule:
+  any:
+    - pattern: "[ $X = $Y ]"
+    - pattern: "[ $X != $Y ]"
+    - pattern: "[ $X == $Y ]"
+constraints:
+  X:
+    regex: ^\$[A-Za-z_][A-Za-z0-9_]*$
+  Y:
+    regex: ^\$[A-Za-z_][A-Za-z0-9_]*$

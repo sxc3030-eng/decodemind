@@ -1,0 +1,8 @@
+id: kotlin-http-cleartext
+language: Kotlin
+category: security
+severity: warning
+message: Cleartext HTTP URL — traffic can be read and modified on the network;
+  use https://
+rule:
+  pattern: '"http://"'

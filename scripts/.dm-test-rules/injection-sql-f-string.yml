@@ -1,0 +1,15 @@
+id: injection-sql-f-string
+language: Python
+category: security
+severity: error
+message: f-string SQL query — user input is interpolated directly into SQL; use
+  parameterized queries instead
+rule:
+  any:
+    - pattern: cursor.execute(f"$$$")
+    - pattern: $CUR.execute(f"$$$")
+    - pattern: $CUR.executemany(f"$$$")
+    - pattern: $VAR = f"$$$"
+constraints:
+  VAR:
+    regex: (?i)(query|sql|stmt|statement)

@@ -1,0 +1,7 @@
+id: bug-typeof-null-object
+language: JavaScript
+category: bug
+severity: info
+message: typeof null returns 'object' — check explicitly for null
+rule:
+  pattern: typeof $VAR === "object"

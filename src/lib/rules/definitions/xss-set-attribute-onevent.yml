@@ -5,6 +5,6 @@ severity: error
 message: setAttribute with an event handler name — XSS risk if the value is user-controlled
 rule:
   pattern: $EL.setAttribute($ATTR, $X)
-  constraints:
-    ATTR:
-      regex: '^"on\w+'
+constraints:
+  ATTR:
+    regex: '^"on\w+'

@@ -1,0 +1,7 @@
+{
+  "network-localhost-url": {
+    "problem": "Your code contains a hardcoded URL pointing to localhost, 127.0.0.1, 0.0.0.0, or a private IP. This works on your machine but fails everywhere else — staging, production, teammates' setups, or CI runners.",
+    "impact": "The request will fail in any environment that isn't yours: connection refused, name resolution error, or worse, hitting an unintended local service. In production, errors may be silent and only surface when users complain.",
+    "fix": "Move the URL to an environment variable or config file (e.g. os.environ['API_URL']) and provide a sensible default for local dev. Keep your real production URL out of source control."
+  }
+}

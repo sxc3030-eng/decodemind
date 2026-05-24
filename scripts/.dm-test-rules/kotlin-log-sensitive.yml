@@ -1,0 +1,19 @@
+id: kotlin-log-sensitive
+language: Kotlin
+category: security
+severity: error
+message: Logging a sensitive value (password/token/secret) — Android logs are
+  accessible to adb and stay in crash reports
+rule:
+  all:
+    - pattern: Log.d($TAG, $MSG)
+    - any:
+        - has:
+            field: arguments
+            regex: password
+        - has:
+            field: arguments
+            regex: token
+        - has:
+            field: arguments
+            regex: secret

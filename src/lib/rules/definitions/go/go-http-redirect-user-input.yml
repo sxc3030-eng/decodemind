@@ -5,6 +5,6 @@ severity: warning
 message: http.Redirect with a variable URL — open-redirect risk if $V is request-derived; validate the destination against an allowlist
 rule:
   pattern: http.Redirect($W, $R, $V, $CODE)
-  constraints:
-    V:
-      kind: identifier
+constraints:
+  V:
+    kind: identifier

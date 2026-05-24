@@ -1,0 +1,10 @@
+id: php-var-dump-prod
+language: PHP
+category: quality
+severity: info
+message: var_dump()/print_r() leaks internals when reached in production —
+  remove or guard with a debug flag
+rule:
+  any:
+    - pattern: var_dump($X);
+    - pattern: print_r($X);

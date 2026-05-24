@@ -1,0 +1,12 @@
+id: swift-keychain-no-access-control
+language: Swift
+category: security
+severity: warning
+message: Keychain item added without kSecAttrAccessControl — sensitive items
+  should require device unlock or biometric auth
+rule:
+  pattern: SecItemAdd($Q, $R)
+  not:
+    has:
+      pattern: kSecAttrAccessControl
+      stopBy: end

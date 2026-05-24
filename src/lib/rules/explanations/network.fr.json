@@ -1,0 +1,7 @@
+{
+  "network-localhost-url": {
+    "problem": "Ton code contient une URL pointant en dur vers localhost, 127.0.0.1, 0.0.0.0 ou une IP privée. Ca marche sur ta machine mais casse partout ailleurs — staging, prod, machines des collègues, runners CI.",
+    "impact": "La requete echoue dans tout environnement qui n'est pas le tien : connection refused, erreur DNS, ou pire, ca tape un service local non voulu. En prod les erreurs peuvent etre silencieuses et n'apparaitre que quand les utilisateurs se plaignent.",
+    "fix": "Deplace l'URL dans une variable d'environnement ou un fichier de config (ex. os.environ['API_URL']) avec une valeur par defaut raisonnable pour le dev local. Ne commit jamais ta vraie URL de prod."
+  }
+}

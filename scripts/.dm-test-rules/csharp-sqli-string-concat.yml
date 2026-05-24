@@ -1,0 +1,8 @@
+id: csharp-sqli-string-concat
+language: C#
+category: security
+severity: error
+message: SqlCommand built with string concatenation — classic SQL injection; use
+  parameterized queries with SqlParameter
+rule:
+  pattern: new SqlCommand("SELECT " + $V, $CONN)

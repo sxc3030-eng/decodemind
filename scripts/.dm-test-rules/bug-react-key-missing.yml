@@ -1,0 +1,7 @@
+id: bug-react-key-missing
+language: TypeScript
+category: bug
+severity: warning
+message: React array element without key prop — re-render bugs
+rule:
+  pattern: $ARR.map(($ITEM) => <$TAG $$$PROPS>$$$CHILDREN</$TAG>)

@@ -1,0 +1,8 @@
+id: kotlin-shared-prefs-plaintext-token
+language: Kotlin
+category: security
+severity: error
+message: Storing a token in SharedPreferences in plaintext — use
+  EncryptedSharedPreferences or Android Keystore
+rule:
+  pattern: $PREFS.edit().putString("token", $V)

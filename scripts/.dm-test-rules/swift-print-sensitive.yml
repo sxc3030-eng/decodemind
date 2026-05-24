@@ -1,0 +1,8 @@
+id: swift-print-sensitive
+language: Swift
+category: security
+severity: info
+message: print() statement found — Swift print logs to device console; sensitive
+  values should use os.log with privacy modifiers
+rule:
+  pattern: print($MSG)

@@ -1,0 +1,13 @@
+{
+  "_expected_findings": [
+    "line 9 osv-CVE-2021-43808 security — laravel/framework>=8.0.0,<8.75.0 (Blade XSS)",
+    "line 10 osv-CVE-2023-29197 security — guzzlehttp/psr7<2.4.5 (invalid header chars)",
+    "line 11 osv-CVE-2024-28861 security — symfony/http-foundation>=5.0.0,<5.4.35 OR <4.4.51 (session fixation)"
+  ],
+  "name": "decodemind-tests/osv-php-fixture",
+  "require": {
+    "laravel/framework": "8.74.0",
+    "guzzlehttp/psr7": "2.4.0",
+    "symfony/http-foundation": "4.4.0"
+  }
+}

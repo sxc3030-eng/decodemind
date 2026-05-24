@@ -1,0 +1,8 @@
+id: java-weak-crypto-sha1
+language: Java
+category: security
+severity: warning
+message: MessageDigest.getInstance("SHA-1") is deprecated for security uses —
+  use SHA-256 or stronger
+rule:
+  pattern: MessageDigest.getInstance("SHA-1")

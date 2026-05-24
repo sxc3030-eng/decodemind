@@ -8,8 +8,8 @@ rule:
     - pattern: '[ $X = $Y ]'
     - pattern: '[ $X != $Y ]'
     - pattern: '[ $X == $Y ]'
-  constraints:
-    X:
-      regex: '^\$[A-Za-z_][A-Za-z0-9_]*$'
-    Y:
-      regex: '^\$[A-Za-z_][A-Za-z0-9_]*$'
+constraints:
+  X:
+    regex: '^\$[A-Za-z_][A-Za-z0-9_]*$'
+  Y:
+    regex: '^\$[A-Za-z_][A-Za-z0-9_]*$'

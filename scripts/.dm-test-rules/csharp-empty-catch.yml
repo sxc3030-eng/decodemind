@@ -1,0 +1,10 @@
+id: csharp-empty-catch
+language: C#
+category: bug
+severity: warning
+message: Empty catch block silently swallows exceptions — log via ILogger or
+  rethrow to keep failures observable
+rule:
+  pattern: |
+    catch ($T $E) {
+    }

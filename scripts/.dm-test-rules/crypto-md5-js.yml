@@ -1,0 +1,7 @@
+id: crypto-md5-js
+language: JavaScript
+category: security
+severity: warning
+message: crypto.createHash('md5') uses a weak algorithm — use SHA-256 or stronger
+rule:
+  pattern: crypto.createHash('md5')

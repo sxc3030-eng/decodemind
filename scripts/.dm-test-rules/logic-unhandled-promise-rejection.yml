@@ -1,0 +1,7 @@
+id: logic-unhandled-promise-rejection
+language: TypeScript
+category: logic
+severity: warning
+message: Promise without .catch() — silent rejection
+rule:
+  pattern: $OBJ.then($$$ARGS)

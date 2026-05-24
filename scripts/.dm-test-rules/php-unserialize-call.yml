@@ -1,0 +1,8 @@
+id: php-unserialize-call
+language: PHP
+category: security
+severity: error
+message: unserialize() on untrusted data enables object-injection / RCE — use
+  json_decode() instead
+rule:
+  pattern: unserialize($X)

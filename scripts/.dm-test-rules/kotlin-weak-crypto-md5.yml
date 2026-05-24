@@ -1,0 +1,7 @@
+id: kotlin-weak-crypto-md5
+language: Kotlin
+category: security
+severity: error
+message: MD5 is cryptographically broken — use SHA-256 (or BCrypt/Argon2 for passwords)
+rule:
+  pattern: MessageDigest.getInstance("MD5")

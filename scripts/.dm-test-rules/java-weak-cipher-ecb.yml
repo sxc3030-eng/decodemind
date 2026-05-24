@@ -1,0 +1,8 @@
+id: java-weak-cipher-ecb
+language: Java
+category: security
+severity: error
+message: AES/ECB mode is insecure — identical plaintext blocks produce identical
+  ciphertext; use AES/GCM or AES/CBC with random IV
+rule:
+  pattern: Cipher.getInstance("AES/ECB/PKCS5Padding")

@@ -1,0 +1,26 @@
+# EXPECTED FINDINGS:
+# - line 13: yaml-gha-permissions-write-all — security — permissions: write-all
+# - line 19: yaml-gha-pull-request-target-with-checkout — security — pull_request_target + checkout
+# - line 19: yaml-gha-third-party-no-sha-pin — security — third-party action pinned by tag (acme/build@v1)
+# - line 21: yaml-gha-secret-in-env-name — security — hardcoded TOKEN env literal
+# - line 25: yaml-gha-script-with-untrusted-context — security — run: interpolates github.event.issue.title
+name: ci
+
+on:
+  pull_request_target:
+    branches: [main]
+
+permissions: write-all
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: acme/build@v1
+        env:
+          DEPLOY_TOKEN: ghp_literalexampletoken1234
+
+      - name: Comment on issue
+        run: |
+          echo "Title: ${{ github.event.issue.title }}"
+          echo "done"

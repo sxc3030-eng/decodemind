@@ -1,0 +1,7 @@
+id: injection-os-system
+language: Python
+category: security
+severity: error
+message: os.system() executes shell commands — same injection risk as shell=True
+rule:
+  pattern: os.system($CMD)

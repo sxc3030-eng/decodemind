@@ -1,0 +1,18 @@
+{
+  "_expected_findings": [
+    "line 13 osv-CVE-2021-23337 security — lodash<4.17.21 (template RCE)",
+    "line 13 osv-CVE-2019-10744 security — lodash<4.17.12 (prototype pollution)",
+    "line 14 osv-CVE-2021-44906 security — minimist<1.2.6 (prototype pollution)",
+    "line 15 osv-CVE-2021-3749 security — axios<0.21.2 (ReDoS/SSRF)",
+    "line 15 osv-CVE-2023-45857 security — axios>=0.8.1,<1.6.0 (CSRF token leak)",
+    "line 16 osv-CVE-2022-24999 security — express<4.17.3 (prototype pollution via qs)"
+  ],
+  "name": "osv-fixture",
+  "version": "0.0.1",
+  "dependencies": {
+    "lodash": "4.17.10",
+    "minimist": "1.2.0",
+    "axios": "0.20.0",
+    "express": "4.17.0"
+  }
+}

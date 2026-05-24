@@ -1,0 +1,9 @@
+id: quality-no-docstring
+language: Python
+category: quality
+severity: info
+message: Public function without docstring
+rule:
+  pattern: |
+    def $FN($$$PARAMS):
+      $$$BODY

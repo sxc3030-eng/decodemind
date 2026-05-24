@@ -1,0 +1,8 @@
+id: php-system-call
+language: PHP
+category: security
+severity: error
+message: system() executes a shell command and prints output — high
+  command-injection risk with variable input
+rule:
+  pattern: system($CMD)

@@ -5,6 +5,6 @@ severity: warning
 message: useFetch/useDebounce are not React core hooks — common LLM hallucination; install a library or implement them yourself
 rule:
   pattern: $HOOK($X)
-  constraints:
-    HOOK:
-      regex: '^(useFetch|useDebounce)$'
+constraints:
+  HOOK:
+    regex: '^(useFetch|useDebounce)$'

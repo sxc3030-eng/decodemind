@@ -1,0 +1,8 @@
+id: ruby-rails-find-by-sql-string
+language: Ruby
+category: security
+severity: error
+message: find_by_sql with concatenated SQL — SQL injection; pass an array [sql,
+  *binds] so values are bound safely
+rule:
+  pattern: $M.find_by_sql("SELECT " + $V)

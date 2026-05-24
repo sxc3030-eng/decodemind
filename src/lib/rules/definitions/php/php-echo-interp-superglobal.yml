@@ -5,6 +5,6 @@ severity: error
 message: echo with interpolated superglobal — XSS, sanitize with htmlspecialchars() before embedding in HTML
 rule:
   pattern: echo $S;
-  constraints:
-    S:
-      regex: '\$_(GET|POST|REQUEST|COOKIE)\['
+constraints:
+  S:
+    regex: '\$_(GET|POST|REQUEST|COOKIE)\['

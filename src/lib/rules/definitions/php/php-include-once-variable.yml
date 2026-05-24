@@ -7,6 +7,6 @@ rule:
   any:
     - pattern: include_once $X;
     - pattern: require_once $X;
-  constraints:
-    X:
-      regex: '^\$'
+constraints:
+  X:
+    regex: '^\$'

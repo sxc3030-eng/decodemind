@@ -5,6 +5,6 @@ severity: error
 message: system() with a variable argument — command injection risk; pass arguments as an array (system("cmd", arg1, arg2))
 rule:
   pattern: system($X)
-  constraints:
-    X:
-      kind: identifier
+constraints:
+  X:
+    kind: identifier

@@ -1,0 +1,8 @@
+id: dart-eval-via-mirror
+language: Dart
+category: security
+severity: error
+message: MirrorSystem reflection — invoking methods by name from runtime data is
+  equivalent to eval and enables injection
+rule:
+  pattern: MirrorSystem.getName($X)

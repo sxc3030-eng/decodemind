@@ -1,0 +1,10 @@
+# EXPECTED FINDINGS:
+# - line 7: osv-CVE-2023-44271 — security — pillow<10.0.1 (ImageFont DoS), matches pillow==9.0.0
+# - line 8: osv-CVE-2018-18074 — security — requests<2.20.0 (Authorization leak on redirect)
+# - line 9: osv-CVE-2020-14343 — security — pyyaml<5.4 (yaml.full_load arbitrary code execution)
+# - line 10: osv-CVE-2023-30861 — security — flask<2.2.5 (cookie session leak)
+
+pillow==9.0.0
+requests==2.19.0
+pyyaml==5.3.1
+flask==2.0.0

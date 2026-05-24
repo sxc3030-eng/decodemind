@@ -1,0 +1,14 @@
+id: bash-curl-pipe-bash
+language: Bash
+category: security
+severity: error
+message: Piping a download directly into a shell runs whatever the server
+  returns — supply-chain RCE risk
+rule:
+  any:
+    - pattern: curl $URL | bash
+    - pattern: curl $URL | sh
+    - pattern: wget $URL | bash
+    - pattern: wget $URL | sh
+    - pattern: curl $$$ARGS | bash
+    - pattern: curl $$$ARGS | sh

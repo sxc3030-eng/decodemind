@@ -64,23 +64,50 @@ async function ensureInit(languages: string[]): Promise<void> {
  * which couldn't handle V2 rule shapes (any, all, kind, inside, has, not).
  *
  * The real @ast-grep/wasm API does NOT accept raw YAML strings — SgNode.findAll()
- * takes a JS rule-config object (same shape as YAML but as plain JS). We use
- * the `yaml` npm package (already a dep of loader.ts) to parse the YAML into
- * an object and pass `rule` directly to findAll().
+ * takes a NapiConfig: `{ rule, constraints?, utils? }`. CRITICALLY, `constraints`
+ * and `utils` are TOP-LEVEL siblings of `rule`, NOT children. V1 and V2 rule
+ * authors wrote them as `rule.constraints:` (one level too deep) and the V2.1
+ * dispatch bug silently dropped them.
+ *
+ * This parser handles BOTH shapes:
+ *  - Schema A (DecodeMind's authored YAMLs): constraints/utils nested under rule
+ *  - Schema B (ast-grep official): constraints/utils at top level
  *
  * Throws if the YAML is malformed or `rule` is missing.
  */
-function parseRuleYaml(yaml: string): { id: string; rule: Record<string, unknown> } {
+function parseRuleYaml(yaml: string): {
+  id: string;
+  rule: Record<string, unknown>;
+  constraints?: Record<string, unknown>;
+  utils?: Record<string, unknown>;
+} {
   const obj = parseYaml(yaml) as Record<string, unknown> | null;
   if (!obj || typeof obj !== 'object') {
     throw new Error('parseRuleYaml: YAML did not parse to an object');
   }
   const id = typeof obj.id === 'string' ? obj.id : 'unknown';
-  const rule = obj.rule;
-  if (!rule || typeof rule !== 'object') {
+  const rawRule = obj.rule;
+  if (!rawRule || typeof rawRule !== 'object') {
     throw new Error(`parseRuleYaml: missing or invalid 'rule' object in ${id}`);
   }
-  return { id, rule: rule as Record<string, unknown> };
+  const ruleObj = rawRule as Record<string, unknown>;
+
+  // Lift constraints/utils out of rule.* into top-level. The ast-grep YAML
+  // grammar puts them at top level; DecodeMind's rule authors put them inside
+  // rule. Either is accepted now — we normalize to top-level for findAll().
+  const constraints =
+    (ruleObj.constraints as Record<string, unknown> | undefined) ??
+    (obj.constraints as Record<string, unknown> | undefined);
+  const utils =
+    (ruleObj.utils as Record<string, unknown> | undefined) ??
+    (obj.utils as Record<string, unknown> | undefined);
+
+  // Strip constraints/utils from the rule body so findAll only sees the
+  // matcher (pattern/kind/any/all/inside/has/not/etc.).
+  const { constraints: _c, utils: _u, ...ruleOnly } = ruleObj;
+  void _c; void _u;
+
+  return { id, rule: ruleOnly, ...(constraints ? { constraints } : {}), ...(utils ? { utils } : {}) };
 }
 
 self.onmessage = async (event: MessageEvent<AstGrepRequest>) => {
@@ -89,7 +116,15 @@ self.onmessage = async (event: MessageEvent<AstGrepRequest>) => {
     const languages = [...new Set(event.data.files.map((f) => f.language.toLowerCase()))];
     await ensureInit(languages);
 
-    const { id: ruleId, rule } = parseRuleYaml(event.data.ruleYaml);
+    const { id: ruleId, rule, constraints, utils } = parseRuleYaml(event.data.ruleYaml);
+
+    // Build the NapiConfig: rule + (optionally) top-level constraints/utils.
+    // Without these, every meta-var regex constraint is silently dropped and
+    // patterns like `$VAR = $VALUE` would match every assignment in the file
+    // (huge false-positive blast). This was the V2.1 critical bug.
+    const matcher: Record<string, unknown> = { rule };
+    if (constraints) matcher.constraints = constraints;
+    if (utils) matcher.utils = utils;
 
     const scanStart = performance.now();
     const matches: AstGrepMatch[] = [];
@@ -97,7 +132,7 @@ self.onmessage = async (event: MessageEvent<AstGrepRequest>) => {
       // Adjusted from spec: parse(lang, src) → SgRoot (synchronous, not parseFiles([...]))
       const sgRoot = parse(file.language.toLowerCase(), file.content);
       // Adjusted from spec: SgRoot has no findAll(); must call .root() first.
-      const found = sgRoot.root().findAll({ rule });
+      const found = sgRoot.root().findAll(matcher);
       for (const node of found) {
         const range = node.range();
         matches.push({

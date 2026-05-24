@@ -1,0 +1,7 @@
+id: bug-dict-get-no-default
+language: Python
+category: bug
+severity: info
+message: dict.get() without default returns None — caller may not handle it
+rule:
+  pattern: $DICT.get($KEY)

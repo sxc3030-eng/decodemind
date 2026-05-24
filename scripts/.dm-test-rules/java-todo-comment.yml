@@ -1,0 +1,7 @@
+id: java-todo-comment
+language: Java
+category: quality
+severity: info
+message: TODO/FIXME comment found — track in an issue tracker or resolve before merge
+rule:
+  pattern: $ANY

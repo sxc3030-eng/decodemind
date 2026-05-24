@@ -1,0 +1,7 @@
+id: bug-string-concat-int
+language: Python
+category: bug
+severity: error
+message: Implicit string + int concatenation will TypeError
+rule:
+  pattern: $STR + $NUM

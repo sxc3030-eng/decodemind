@@ -1,0 +1,21 @@
+id: network-localhost-url
+language: Python
+category: bug
+severity: warning
+message: Hardcoded localhost / 127.0.0.1 URL — will break in production; move to
+  a config value or environment variable
+rule:
+  any:
+    - pattern: requests.get($URL)
+    - pattern: requests.post($URL)
+    - pattern: requests.put($URL)
+    - pattern: requests.delete($URL)
+    - pattern: requests.patch($URL)
+    - pattern: requests.head($URL)
+    - pattern: urllib.request.urlopen($URL)
+    - pattern: httpx.get($URL)
+    - pattern: httpx.post($URL)
+    - pattern: aiohttp.get($URL)
+constraints:
+  URL:
+    regex: ^"(http://(localhost|127\.0\.0\.1|0\.0\.0\.0)|http://[0-9]{1,3}\.[0-9]{1,3}\.)

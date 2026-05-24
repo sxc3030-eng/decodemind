@@ -1,0 +1,8 @@
+id: injection-subprocess-shell-true
+language: Python
+category: security
+severity: error
+message: subprocess.Popen with shell=True enables shell injection — pass a list
+  of arguments instead
+rule:
+  pattern: subprocess.Popen($CMD, shell=True)
