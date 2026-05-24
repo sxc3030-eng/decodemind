@@ -280,6 +280,38 @@ export function SpikePage() {
     }
   }
 
+  /**
+   * Build a multi-line progress message including:
+   *   - elapsed time since scan started
+   *   - per-scanner progress (Ruff, ESLint, Prettier, ast-grep, OSV, Dockerfile, YAML)
+   *   - overall percentage (done units / total units across all scanners)
+   * Only scanners with `total > 0` appear, so a Python-only scan shows just
+   * Ruff + ast-grep, not the empty ESLint / Prettier counters.
+   */
+  function formatProgress(
+    done: Record<ScannerKind, number>,
+    total: Record<ScannerKind, number>,
+    startMs: number,
+  ): string {
+    const elapsed = ((performance.now() - startMs) / 1000).toFixed(1);
+    const parts: string[] = [];
+    if (total.ruff > 0) parts.push(`Ruff ${done.ruff}/${total.ruff}`);
+    if (total.eslint > 0) parts.push(`ESLint ${done.eslint}/${total.eslint}`);
+    const prettierDone = done['prettier-html'] + done['prettier-css'];
+    const prettierTotal = total['prettier-html'] + total['prettier-css'];
+    if (prettierTotal > 0) parts.push(`Prettier ${prettierDone}/${prettierTotal}`);
+    if (total['ast-grep'] > 0) parts.push(`ast-grep ${done['ast-grep']}/${total['ast-grep']}`);
+    if (total.osv > 0) parts.push(`OSV ${done.osv}/${total.osv}`);
+    if (total.dockerfile > 0) parts.push(`Dockerfile ${done.dockerfile}/${total.dockerfile}`);
+    if (total.yaml > 0) parts.push(`YAML ${done.yaml}/${total.yaml}`);
+
+    const totalUnits = Object.values(total).reduce((a, b) => a + b, 0);
+    const doneUnits = Object.values(done).reduce((a, b) => a + b, 0);
+    const pct = totalUnits > 0 ? Math.round((doneUnits / totalUnits) * 100) : 0;
+
+    return `Scanning ${pct}% · ${elapsed}s elapsed · ${parts.join(', ')}`;
+  }
+
   async function pickAndScan() {
     if (!('showDirectoryPicker' in window)) return;
     setBusy('folder-scan');
@@ -302,16 +334,11 @@ export function SpikePage() {
 
       setScanProgress(`Starting scan of ${files.length} files…`);
 
+      const _scanStart = performance.now();
       const report = await scanAllFiles(
         files,
         (done: Record<ScannerKind, number>, total: Record<ScannerKind, number>) => {
-          const parts: string[] = [];
-          if (total.ruff > 0) parts.push(`Ruff ${done.ruff}/${total.ruff}`);
-          if (total.eslint > 0) parts.push(`ESLint ${done.eslint}/${total.eslint}`);
-          const prettierDone = done['prettier-html'] + done['prettier-css'];
-          const prettierTotal = total['prettier-html'] + total['prettier-css'];
-          if (prettierTotal > 0) parts.push(`Prettier ${prettierDone}/${prettierTotal}`);
-          setScanProgress(`Scanning: ${parts.join(', ')}`);
+          setScanProgress(formatProgress(done, total, _scanStart));
         },
       );
 
@@ -353,16 +380,11 @@ export function SpikePage() {
         return;
       }
       setScanProgress(`Starting scan of ${files.length} files…`);
+      const _scanStartB = performance.now();
       const report = await scanAllFiles(
         files,
         (done: Record<ScannerKind, number>, total: Record<ScannerKind, number>) => {
-          const parts: string[] = [];
-          if (total.ruff > 0) parts.push(`Ruff ${done.ruff}/${total.ruff}`);
-          if (total.eslint > 0) parts.push(`ESLint ${done.eslint}/${total.eslint}`);
-          const prettierDone = done['prettier-html'] + done['prettier-css'];
-          const prettierTotal = total['prettier-html'] + total['prettier-css'];
-          if (prettierTotal > 0) parts.push(`Prettier ${prettierDone}/${prettierTotal}`);
-          setScanProgress(`Scanning: ${parts.join(', ')}`);
+          setScanProgress(formatProgress(done, total, _scanStartB));
         },
       );
       setFolderReport({ ...report, warnings: [...warnings, ...report.warnings] });
@@ -389,16 +411,11 @@ export function SpikePage() {
         return;
       }
       setScanProgress(`Starting scan of ${files.length} files…`);
+      const _scanStartC = performance.now();
       const report = await scanAllFiles(
         files,
         (done: Record<ScannerKind, number>, total: Record<ScannerKind, number>) => {
-          const parts: string[] = [];
-          if (total.ruff > 0) parts.push(`Ruff ${done.ruff}/${total.ruff}`);
-          if (total.eslint > 0) parts.push(`ESLint ${done.eslint}/${total.eslint}`);
-          const prettierDone = done['prettier-html'] + done['prettier-css'];
-          const prettierTotal = total['prettier-html'] + total['prettier-css'];
-          if (prettierTotal > 0) parts.push(`Prettier ${prettierDone}/${prettierTotal}`);
-          setScanProgress(`Scanning: ${parts.join(', ')}`);
+          setScanProgress(formatProgress(done, total, _scanStartC));
         },
       );
       setFolderReport({ ...report, warnings: [...warnings, ...report.warnings] });
