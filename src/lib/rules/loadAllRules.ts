@@ -134,17 +134,29 @@ export function getRuleLoadErrors(): { source: string; error: string }[] {
  * Serialize a rule back to YAML for the ast-grep worker. The worker accepts
  * `ruleYaml` (string) and parses it internally — sending YAML keeps the worker
  * boundary tidy.
+ *
+ * Uses a tiny serializer that lays out top-level `rule:` / `constraints:` /
+ * `utils:` blocks via JSON values (YAML is a JSON superset, so JSON object
+ * literals embedded in YAML parse correctly). Critical: without serializing
+ * `constraints` and `utils`, every meta-var regex narrowing is lost and
+ * rules like `crypto-hardcoded-secret` match every assignment in the file
+ * (or worse, return zero matches because the meta-var-only context has no
+ * concrete anchor).
  */
 export function ruleToYaml(rule: AstGrepRule): string {
-  // The worker only reads `id` and `rule`, but we include `language` for
-  // debugging clarity in case of a malformed call.
   const lines = [
     `id: ${rule.id}`,
     `language: ${rule.language}`,
     `rule:`,
   ];
   for (const [key, value] of Object.entries(rule.rule)) {
-    lines.push(`  ${key}: ${typeof value === 'string' ? JSON.stringify(value) : JSON.stringify(value)}`);
+    lines.push(`  ${key}: ${JSON.stringify(value)}`);
+  }
+  if (rule.constraints) {
+    lines.push(`constraints: ${JSON.stringify(rule.constraints)}`);
+  }
+  if (rule.utils) {
+    lines.push(`utils: ${JSON.stringify(rule.utils)}`);
   }
   return lines.join('\n');
 }

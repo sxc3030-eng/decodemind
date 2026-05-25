@@ -10,6 +10,10 @@ export interface AstGrepRule {
   severity: RuleSeverity;
   message: string;
   rule: Record<string, unknown>; // ast-grep rule object — passed directly to findAll
+  /** Top-level constraints object (ast-grep YAML schema). May be undefined. */
+  constraints?: Record<string, unknown>;
+  /** Top-level utils object (ast-grep YAML schema). May be undefined. */
+  utils?: Record<string, unknown>;
 }
 
 export interface RuleLoadError {
@@ -45,7 +49,27 @@ export function parseRule(source: string, sourceName = '<inline>'): AstGrepRule 
   if (!['error', 'warning', 'info'].includes(severity)) {
     throw new Error(`${sourceName}: invalid severity '${severity}'`);
   }
-  return { id, language: language.toLowerCase(), category, severity, message, rule: rule as Record<string, unknown> };
+  // Constraints + utils live at TOP LEVEL of the YAML (sibling of `rule:`)
+  // per the official ast-grep schema. Preserve them so the worker can pass
+  // them alongside the rule matcher to findAll(); without these, every
+  // hardcoded-secret / weak-pattern rule with regex constraints falls back
+  // to "match every assignment" — useless.
+  const constraints = (o.constraints && typeof o.constraints === 'object')
+    ? (o.constraints as Record<string, unknown>)
+    : undefined;
+  const utils = (o.utils && typeof o.utils === 'object')
+    ? (o.utils as Record<string, unknown>)
+    : undefined;
+  return {
+    id,
+    language: language.toLowerCase(),
+    category,
+    severity,
+    message,
+    rule: rule as Record<string, unknown>,
+    ...(constraints ? { constraints } : {}),
+    ...(utils ? { utils } : {}),
+  };
 }
 
 export function parseRules(sources: { name: string; text: string }[]): { rules: AstGrepRule[]; errors: RuleLoadError[] } {
