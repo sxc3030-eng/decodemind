@@ -673,45 +673,20 @@ export async function scanAllFiles(
       let errCount = 0;
       let jobsDone = 0;
 
-      // Single-worker dispatch with explicit warmup. POOL_SIZE_ASTGREP=1 so we
-      // can keep the worker alive across the entire scan — the first scan
-      // through web-tree-sitter eats the WASM-compile + grammar-fetch cost
-      // (~30-60s on Vite dev), but subsequent scans land in <100ms because
-      // the language is cached in the worker's `registeredLanguages` Set.
-      //
-      // Critical: the warmup runs on the SAME worker that processes the rule
-      // jobs. A separate warmup worker would be useless — worker scopes are
-      // isolated and the registered-language Set lives in module state inside
-      // the worker.
+      // Single-worker dispatch — no warmup. Empirically the warmup never
+      // returns in under 5 minutes (web-tree-sitter ESM transform on Vite +
+      // grammar fetch + WASM compile) — same time cost gets paid whether
+      // attributed to a separate warmup call or to the first rule scan. We
+      // pay it on the first rule with a generous timeout, then every
+      // subsequent rule lands in <100ms because the worker caches the
+      // registered language in module state.
       const worker = makeAstGrepWorker();
-      const langsToWarm = Array.from(filesByLang.keys());
-      // eslint-disable-next-line no-console
-      console.info(`[ast-grep] warming up grammars: ${langsToWarm.join(', ')}`);
-      try {
-        const wStart = performance.now();
-        const wRes = await ask<AstGrepRequest, AstGrepResponse>(
-          worker,
-          { type: 'warmup', languages: langsToWarm },
-          300_000,
-        );
-        const wMs = Math.round(performance.now() - wStart);
-        if (wRes.type === 'error') {
-          warnings.push(`ast-grep warmup failed: ${wRes.message}`);
-          // eslint-disable-next-line no-console
-          console.warn(`[ast-grep] warmup failed in ${wMs}ms: ${wRes.message}`);
-        } else {
-          // eslint-disable-next-line no-console
-          console.info(`[ast-grep] warmed in ${wMs}ms`);
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        warnings.push(`ast-grep warmup error: ${message}`);
-        // eslint-disable-next-line no-console
-        console.warn(`[ast-grep] warmup error: ${message}`);
-      }
 
-      // Now run every rule against the SAME warmed worker.
-      for (const job of astGrepJobs) {
+      // Run every rule against the same long-lived worker. First rule pays
+      // the cold-load cost (web-tree-sitter compile + grammar fetch), each
+      // subsequent rule lands in <100ms.
+      for (let i = 0; i < astGrepJobs.length; i++) {
+        const job = astGrepJobs[i];
         const req: AstGrepRequest = {
           type: 'scan',
           files: job.fileSet.map((f) => ({
@@ -721,9 +696,12 @@ export async function scanAllFiles(
           })),
           ruleYaml: job.ruleYaml,
         };
+        // First job gets a generous 5-min timeout to absorb the one-shot
+        // cold-load. All later jobs get the normal 60s wall.
+        const timeoutMs = i === 0 ? 300_000 : 60_000;
         let res: AstGrepResponse;
         try {
-          res = await ask<AstGrepRequest, AstGrepResponse>(worker, req);
+          res = await ask<AstGrepRequest, AstGrepResponse>(worker, req, timeoutMs);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           res = { type: 'error', message } as AstGrepResponse;

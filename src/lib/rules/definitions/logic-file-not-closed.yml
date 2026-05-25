@@ -4,5 +4,9 @@ category: logic
 severity: warning
 message: open() without with-statement may leak file descriptors
 rule:
-  pattern: $VAR = open($$$)
-# TODO: this also flags `with open(...) as f` if assigned outside with — refine later.
+  pattern:
+    context: $VAR = open($URL)
+    selector: assignment
+# Uses `context + selector` so ast-grep can disambiguate the assignment.
+# Note: also flags `with open(...) as f` if assigned outside the with — V2.2
+# refinement: combine with `not.inside: { kind: with_statement }`.
