@@ -696,9 +696,12 @@ export async function scanAllFiles(
           })),
           ruleYaml: job.ruleYaml,
         };
-        // First job gets a generous 5-min timeout to absorb the one-shot
-        // cold-load. All later jobs get the normal 60s wall.
-        const timeoutMs = i === 0 ? 300_000 : 60_000;
+        // First 3 jobs get a 90s timeout each (covers cold-load distributed
+        // across the warmup phase); subsequent jobs land in <100ms once the
+        // tree-sitter grammar is cached in the worker. A 90s wall is enough
+        // for a sane cold-load, but stops a single pathological rule from
+        // burning the whole 5-minute scan budget.
+        const timeoutMs = i < 3 ? 90_000 : 60_000;
         let res: AstGrepResponse;
         try {
           res = await ask<AstGrepRequest, AstGrepResponse>(worker, req, timeoutMs);
