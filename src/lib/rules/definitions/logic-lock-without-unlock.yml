@@ -4,11 +4,6 @@ category: logic
 severity: error
 message: Lock acquired without try/finally — deadlock risk on exception
 rule:
-  pattern:
-    context: $LOCK.acquire()
-    selector: call
-# Uses `context + selector` so ast-grep treats the pattern as a call.
-# Note: this catches EVERY lock.acquire(); reviewers should confirm there's
-# no surrounding `try: ... finally: lock.release()` structure. The narrower
-# variant (only flag when NOT inside try/finally) would need `not.inside`
-# with a precise selector, which is V2.2 backlog.
+  all:
+    - kind: call
+    - pattern: $LOCK.acquire()

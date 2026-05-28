@@ -4,12 +4,9 @@ category: quality
 severity: info
 message: Magic number literal — extract to a named constant
 rule:
-  pattern:
-    context: $VAR = $NUM
-    selector: assignment
+  all:
+    - kind: assignment
+    - pattern: $VAR = $NUM
 constraints:
   NUM:
     regex: '^-?[0-9]+(\.[0-9]+)?$'
-# `context + selector` disambiguates the assignment pattern.
-# Constraint restricts $NUM to a numeric literal (was previously matching
-# every assignment including strings — huge false-positive blast).

@@ -4,14 +4,8 @@ category: bug
 severity: info
 message: dict.get() without default returns None — caller may not handle it
 rule:
-  kind: call
-  has:
-    field: function
-    kind: attribute
-    has:
-      field: attribute
-      regex: '^get$'
-# Structured `kind: call` + nested `has` matcher avoids the context/selector
-# form that hangs the ast-grep WASM runtime for 5+ minutes (CLI works fine).
-# This catches every `.get(...)` call — broad on purpose so reviewers can
-# confirm whether the call is on a dict (vs requests.get, etc.).
+  all:
+    - kind: call
+    - pattern: $DICT.get($KEY)
+# `all: [{kind}, {pattern}]` form: kind narrows to call nodes, pattern provides
+# meta-var bindings without the WASM hang of the context/selector form.

@@ -5,21 +5,18 @@ severity: error
 message: f-string SQL query — user input is interpolated directly into SQL; use parameterized queries instead
 rule:
   any:
-    - pattern:
-        context: cursor.execute(f"$$$")
-        selector: call
-    - pattern:
-        context: $CUR.execute(f"$$$")
-        selector: call
-    - pattern:
-        context: $CUR.executemany(f"$$$")
-        selector: call
-    - pattern:
-        context: $VAR = f"$$$"
-        selector: assignment
+    - all:
+        - kind: call
+        - pattern: cursor.execute(f"$$$")
+    - all:
+        - kind: call
+        - pattern: $CUR.execute(f"$$$")
+    - all:
+        - kind: call
+        - pattern: $CUR.executemany(f"$$$")
+    - all:
+        - kind: assignment
+        - pattern: $VAR = f"$$$"
 constraints:
   VAR:
     regex: '(?i)(query|sql|stmt|statement)'
-# Each variant uses `context + selector` so ast-grep can disambiguate the
-# AST kind for meta-var-only patterns. The constraint on $VAR narrows the
-# assignment branch to query-named vars.
