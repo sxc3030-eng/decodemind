@@ -2,10 +2,11 @@ id: bug-dict-get-no-default
 language: Python
 category: bug
 severity: info
-message: dict.get() without default returns None — caller may not handle it
+message: dict.get() without default returns None — caller may not handle it (V3 backlog — hangs WASM)
 rule:
-  all:
-    - kind: call
-    - pattern: $DICT.get($KEY)
-# `all: [{kind}, {pattern}]` form: kind narrows to call nodes, pattern provides
-# meta-var bindings without the WASM hang of the context/selector form.
+  pattern: $_TEMP_NEVER_MATCHES_intentional_$_
+# Disabled: every shape (context/selector, all:[kind,pattern], kind+has,
+# pattern alone) either hangs the @ast-grep/wasm runtime for 5+ minutes
+# or errors at load. CLI accepts every variant; WASM doesn't. Until the
+# runtime parity is fixed, leave this rule as a no-op so it never burns
+# scan budget. The Pyright/mypy strict-optional flag catches this anyway.

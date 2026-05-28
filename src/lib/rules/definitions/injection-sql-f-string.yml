@@ -5,18 +5,16 @@ severity: error
 message: f-string SQL query — user input is interpolated directly into SQL; use parameterized queries instead
 rule:
   any:
-    - all:
-        - kind: call
-        - pattern: cursor.execute(f"$$$")
-    - all:
-        - kind: call
-        - pattern: $CUR.execute(f"$$$")
-    - all:
-        - kind: call
-        - pattern: $CUR.executemany(f"$$$")
-    - all:
-        - kind: assignment
-        - pattern: $VAR = f"$$$"
-constraints:
-  VAR:
-    regex: '(?i)(query|sql|stmt|statement)'
+    - pattern: cursor.execute(f"$$$")
+    - pattern: cur.execute(f"$$$")
+    - pattern: conn.execute(f"$$$")
+    - pattern: db.execute(f"$$$")
+    - pattern: cursor.executemany(f"$$$")
+    - pattern: query = f"$$$"
+    - pattern: sql = f"$$$"
+    - pattern: stmt = f"$$$"
+    - pattern: statement = f"$$$"
+# Enumerated common cursor names + query-variable names instead of using
+# `$CUR.execute(f"$$$")` + constraint, which drops meta-vars in the WASM
+# runtime. Each pattern here is concrete-anchored — no meta-vars needed
+# at the pattern level so no constraint dropout.

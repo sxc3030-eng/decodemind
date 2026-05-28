@@ -2,13 +2,11 @@ id: bug-string-concat-int
 language: Python
 category: bug
 severity: error
-message: Implicit string + int concatenation will TypeError
+message: Implicit string + int concatenation will TypeError (V3 backlog — needs type tracking)
 rule:
-  all:
-    - kind: binary_operator
-    - pattern: $STR + $NUM
-constraints:
-  STR:
-    regex: '^".*"$|^''.*''$'
-  NUM:
-    regex: '^[0-9]+$'
+  pattern: $_TEMP_NEVER_MATCHES_intentional_$_
+# Disabled: WASM ast-grep can't narrow `$STR + $NUM` to literal-on-literal
+# via constraints. Without the constraint, the pattern flags every `+`
+# expression in the file. The pattern above is intentionally unparseable
+# so the rule loads but matches nothing. Pyright/mypy catches this far
+# better than pattern-matching anyway.
