@@ -2,8 +2,13 @@ id: logic-file-not-closed
 language: Python
 category: logic
 severity: warning
-message: open() without with-statement may leak file descriptors
+message: open() result assigned without with-statement may leak file descriptors
 rule:
-  all:
-    - kind: assignment
-    - pattern: $VAR = open($URL)
+  any:
+    - pattern: f = open($$$)
+    - pattern: fp = open($$$)
+    - pattern: file = open($$$)
+    - pattern: handle = open($$$)
+    - pattern: fh = open($$$)
+    - pattern: infile = open($$$)
+    - pattern: outfile = open($$$)

@@ -4,9 +4,6 @@ category: bug
 severity: info
 message: dict.get() without default returns None — caller may not handle it (V3 backlog — hangs WASM)
 rule:
-  pattern: $_TEMP_NEVER_MATCHES_intentional_$_
-# Disabled: every shape (context/selector, all:[kind,pattern], kind+has,
-# pattern alone) either hangs the @ast-grep/wasm runtime for 5+ minutes
-# or errors at load. CLI accepts every variant; WASM doesn't. Until the
-# runtime parity is fixed, leave this rule as a no-op so it never burns
-# scan budget. The Pyright/mypy strict-optional flag catches this anyway.
+  pattern: __decodemind_v3_backlog_noop__
+# Valid Python identifier (no special chars) that won't appear in real code.
+# ast-grep parses it as a name expression — no AST ambiguity, no WASM hang.

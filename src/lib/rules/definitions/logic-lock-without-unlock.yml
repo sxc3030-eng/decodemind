@@ -4,6 +4,9 @@ category: logic
 severity: error
 message: Lock acquired without try/finally — deadlock risk on exception
 rule:
-  all:
-    - kind: call
-    - pattern: $LOCK.acquire()
+  any:
+    - pattern: lock.acquire()
+    - pattern: mutex.acquire()
+    - pattern: self.lock.acquire()
+    - pattern: self._lock.acquire()
+    - pattern: self.mutex.acquire()

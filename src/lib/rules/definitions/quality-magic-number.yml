@@ -2,10 +2,6 @@ id: quality-magic-number
 language: Python
 category: quality
 severity: info
-message: Magic number literal — extract to a named constant (V3 backlog — reliable detection needs flow analysis)
+message: Magic number literal — extract to a named constant (V3 backlog)
 rule:
-  pattern: $_TEMP_NEVER_MATCHES_intentional_$_
-# Disabled: WASM ast-grep can't constraint-narrow `$VAR = $NUM` to numeric
-# literals; bare `$VAR = $VALUE` matches every assignment in the file
-# (huge noise). The pattern above is intentionally unparseable so the rule
-# loads but matches nothing. V3 will rebuild with a kind-based approach.
+  pattern: __decodemind_v3_backlog_noop__

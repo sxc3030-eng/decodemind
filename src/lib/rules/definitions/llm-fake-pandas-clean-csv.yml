@@ -4,6 +4,5 @@ category: bug
 severity: error
 message: df.to_clean_csv() does not exist — use to_csv() with options
 rule:
-  all:
-    - kind: call
-    - pattern: $DF.to_clean_csv($$$ARGS)
+  kind: call
+  regex: 'to_clean_csv'
