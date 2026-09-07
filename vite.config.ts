@@ -25,7 +25,7 @@ const APP_BUILD = buildInfo();
 // Required for WebGPU + SharedArrayBuffer (WebLLM) on both dev and preview servers.
 const crossOriginIsolationHeaders = {
   'Cross-Origin-Opener-Policy': 'same-origin',
-  'Cross-Origin-Embedder-Policy': 'require-corp',
+  'Cross-Origin-Embedder-Policy': 'credentialless',
 };
 
 export default defineConfig({
