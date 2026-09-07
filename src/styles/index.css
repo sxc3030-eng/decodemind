@@ -10,3 +10,14 @@
     @apply min-h-screen;
   }
 }
+
+/* Bandeau pub OmniPost (flux RSS) -- meme style que festivalpacktravel.ca / luceai.ca */
+.ads-banner{margin:0 auto 1rem;max-width:960px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.1);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.ads-inner{position:relative;width:100%;aspect-ratio:10/1}
+.ad-item{position:absolute;inset:0;display:block;opacity:0;transition:opacity .6s ease;pointer-events:none}
+.ad-item.active{opacity:1;pointer-events:auto}
+.ad-frame{position:relative;display:block;width:100%;height:100%;overflow:hidden}
+.ad-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(20px) brightness(.55);transform:scale(1.15)}
+.ad-fg{position:relative;width:100%;height:100%;object-fit:contain;display:block}
+.ad-label{position:absolute;top:.35rem;right:.5rem;background:rgba(0,0,0,.6);color:#fff;font-size:.65rem;padding:.1rem .4rem;border-radius:4px;text-transform:uppercase;letter-spacing:.04em}
+@media(max-width:640px){.ads-inner{aspect-ratio:16/5}}
