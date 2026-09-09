@@ -80,8 +80,12 @@ export function AdCarousel() {
             tabIndex={index === active ? 0 : -1}
           >
             <span className="ad-frame">
-              <img className="ad-bg" src={item.image} alt="" aria-hidden loading="lazy" />
-              <img className="ad-fg" src={item.image} alt={item.title} loading="lazy" />
+              {/* crossOrigin requis : le site tourne avec COEP require-corp (isolation
+                  necessaire aux workers WASM Ruff/tree-sitter) -- une image cross-origin
+                  sans mode CORS explicite est bloquee (ERR_BLOCKED_BY_RESPONSE...Coep),
+                  meme si l'hote (GitHub Pages) autorise deja Access-Control-Allow-Origin:*. */}
+              <img className="ad-bg" src={item.image} alt="" aria-hidden loading="lazy" crossOrigin="anonymous" />
+              <img className="ad-fg" src={item.image} alt={item.title} loading="lazy" crossOrigin="anonymous" />
             </span>
             <span className="ad-label">Ad</span>
           </a>
