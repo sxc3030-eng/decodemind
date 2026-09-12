@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — DecodeMind</title>
+<meta name="description" content="DecodeMind scans your code inside your browser. What stays on your device, what your browser fetches elsewhere, and what we never collect.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  :root {
+    --bg: #ffffff; --bg2: #f1f5f9; --bg3: #e2e8f0;
+    --fg: #0f172a; --fg2: #475569; --fg3: #64748b;
+    --accent: #2563eb;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f172a; --bg2: #1e293b; --bg3: #334155;
+      --fg: #e2e8f0; --fg2: #94a3b8; --fg3: #7c8ba1;
+      --accent: #60a5fa;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--font); font-size: 16px; line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+  header { border-bottom: 1px solid var(--bg3); background: var(--bg2); }
+  header div {
+    max-width: 780px; margin: 0 auto; padding: 16px 22px;
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  header .logo { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; }
+  header nav { margin-left: auto; display: flex; gap: 16px; font-size: .9rem; }
+  main { max-width: 780px; margin: 0 auto; padding: 40px 22px 72px; }
+  h1 { font-size: 1.85rem; line-height: 1.25; margin: 0 0 6px; letter-spacing: -.015em; }
+  .maj { color: var(--fg3); font-size: .88rem; margin: 0 0 30px; }
+  h2 {
+    font-size: 1.15rem; margin: 34px 0 10px; padding-top: 14px;
+    border-top: 1px solid var(--bg3);
+  }
+  p { margin: 0 0 14px; }
+  ul { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  code {
+    font-family: var(--mono); font-size: .88em;
+    background: var(--bg2); padding: 1px 6px; border-radius: 4px;
+  }
+  .contact {
+    background: var(--bg2); border-left: 3px solid var(--accent);
+    padding: 14px 18px; border-radius: 0 10px 10px 0; margin-bottom: 18px;
+  }
+  .contact p { margin: 0; }
+  .contact .courriel { font-weight: 600; }
+  footer {
+    border-top: 1px solid var(--bg3); color: var(--fg3);
+    font-size: .85rem; text-align: center; padding: 26px 22px 40px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <span class="logo">DecodeMind</span>
+    <nav>
+      <a href="/">Back to the tool</a>
+      <a href="/confidentialite.html">Français</a>
+    </nav>
+  </div>
+</header>
+<main>
+  <h1>Privacy Policy</h1>
+  <p class="maj">Last updated: September 11, 2026</p>
+
+  <p>DecodeMind (decodemind.dev) is a tool by Archipel AI Ventures, a business located in Lévis,
+    Quebec, Canada. It scans source code and explains what it finds, in plain language.</p>
+  <p><strong>Your code never leaves your browser.</strong> That is not a marketing promise, it is how
+    the tool is built: the analysis runs on your machine, inside the tab, and there is no server to
+    send anything to.</p>
+  <p>Quebec's Law 25 governs this tool. Where the French version of this policy and this translation
+    differ, the French version prevails.</p>
+
+  <h2>Who is responsible for your information</h2>
+  <div class="contact">
+    <p><strong>Privacy Officer</strong></p>
+    <p>Archipel AI Ventures — Lévis, Quebec</p>
+    <p class="courriel"><!--email_off--><a href="mailto:archipel.clients@outlook.com">archipel.clients@outlook.com</a><!--/email_off--></p>
+  </div>
+
+  <h2>What we do not collect</h2>
+  <p>No account. No email. No password. No payment. No forms. No visit statistics, no tracker, no
+    advertising cookie. We hold no database about you.</p>
+  <p><strong>Your code is not uploaded, not copied, and not read by us.</strong> When you open a
+    folder, the browser grants the page access to the files you chose, and you alone decide which.
+    Scanning, rules, vulnerability detection and message translation all happen inside the tab.</p>
+
+  <h2>What stays on your device</h2>
+  <ul>
+    <li><strong>Your preferences</strong> (interface language, strictness level, model size) in the
+      browser's local storage.</li>
+    <li><strong>The folder you scanned last</strong>, so it can be offered again next time. That is a
+      permission the browser remembers, not a copy of your files.</li>
+    <li><strong>Explanations already translated</strong>, kept so they need not be recomputed. They
+      are filed under a fingerprint of the code, never under the code itself.</li>
+    <li><strong>Backup copies</strong> made before applying a fix: they are written into your own
+      folder, under <code>.decodemind-backup</code>.</li>
+    <li><strong>The application's files</strong>, so it works offline.</li>
+  </ul>
+  <p>All of that lives on your device. You erase it by clearing the site's data in your browser and
+    deleting the backup folder.</p>
+
+  <h2>The only things your browser fetches elsewhere</h2>
+  <p><strong>The ad banner</strong> at the top of the page is loaded from GitHub Pages (GitHub,
+    United States) on every visit. GitHub therefore sees your IP address, as it would for any image
+    hosted elsewhere.</p>
+  <p><strong>The AI model</strong>, if you ask the tool to translate results into plain language. The
+    model is then downloaded from Hugging Face (United States) — several hundred megabytes — and
+    cached by your browser. <strong>That download happens only if you click.</strong> Hugging Face
+    sees your IP address at download time. After that, the model runs on your machine: your questions
+    and your code do not leave it.</p>
+  <p><strong>Our host, Cloudflare</strong> (United States), serves the pages and sees your IP
+    address, as any host does.</p>
+  <p>The vulnerability database used to check your dependencies is <strong>bundled into the
+    application</strong>: consulting it contacts no one.</p>
+
+  <h2>Your rights</h2>
+  <p>You may write to
+    <!--email_off--><a href="mailto:archipel.clients@outlook.com">archipel.clients@outlook.com</a><!--/email_off--> with any question,
+    to request access to, correction of, or deletion of information about you, and to complain to
+    Quebec's Commission d'accès à l'information.</p>
+  <p>Since we hold no user database, the answer to an access request will be: we hold nothing about
+    you. What the tool keeps is on your device, and you can dispose of it without going through
+    us.</p>
+
+  <h2>Changes</h2>
+  <p>If we change this policy, the date at the top of the page changes.</p>
+</main>
+<footer>
+  © 2026 DecodeMind · Archipel AI Ventures · Lévis, Quebec · <a href="/confidentialite.html">Version française</a>
+</footer>
+</body>
+</html>

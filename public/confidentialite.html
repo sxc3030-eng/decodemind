@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politique de confidentialité — DecodeMind</title>
+<meta name="description" content="DecodeMind analyse votre code dans votre navigateur. Ce qui reste chez vous, ce que votre navigateur va chercher ailleurs, et ce que nous ne recueillons pas.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  :root {
+    --bg: #ffffff; --bg2: #f1f5f9; --bg3: #e2e8f0;
+    --fg: #0f172a; --fg2: #475569; --fg3: #64748b;
+    --accent: #2563eb;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f172a; --bg2: #1e293b; --bg3: #334155;
+      --fg: #e2e8f0; --fg2: #94a3b8; --fg3: #7c8ba1;
+      --accent: #60a5fa;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--font); font-size: 16px; line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+  header { border-bottom: 1px solid var(--bg3); background: var(--bg2); }
+  header div {
+    max-width: 780px; margin: 0 auto; padding: 16px 22px;
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  header .logo { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; }
+  header nav { margin-left: auto; display: flex; gap: 16px; font-size: .9rem; }
+  main { max-width: 780px; margin: 0 auto; padding: 40px 22px 72px; }
+  h1 { font-size: 1.85rem; line-height: 1.25; margin: 0 0 6px; letter-spacing: -.015em; }
+  .maj { color: var(--fg3); font-size: .88rem; margin: 0 0 30px; }
+  h2 {
+    font-size: 1.15rem; margin: 34px 0 10px; padding-top: 14px;
+    border-top: 1px solid var(--bg3);
+  }
+  p { margin: 0 0 14px; }
+  ul { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  code {
+    font-family: var(--mono); font-size: .88em;
+    background: var(--bg2); padding: 1px 6px; border-radius: 4px;
+  }
+  .contact {
+    background: var(--bg2); border-left: 3px solid var(--accent);
+    padding: 14px 18px; border-radius: 0 10px 10px 0; margin-bottom: 18px;
+  }
+  .contact p { margin: 0; }
+  .contact .courriel { font-weight: 600; }
+  footer {
+    border-top: 1px solid var(--bg3); color: var(--fg3);
+    font-size: .85rem; text-align: center; padding: 26px 22px 40px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <span class="logo">DecodeMind</span>
+    <nav>
+      <a href="/">Retour à l'outil</a>
+      <a href="/privacy.html">English</a>
+    </nav>
+  </div>
+</header>
+<main>
+  <h1>Politique de confidentialité</h1>
+  <p class="maj">Dernière mise à jour : 11 septembre 2026</p>
+
+  <p>DecodeMind (decodemind.dev) est un outil d'Archipel AI Ventures, entreprise établie à Lévis, au
+    Québec. Il analyse du code source et explique ce qu'il trouve, en langage clair.</p>
+  <p><strong>Votre code ne quitte jamais votre navigateur.</strong> Ce n'est pas une promesse
+    commerciale, c'est la façon dont l'outil est construit : l'analyse tourne sur votre machine, dans
+    l'onglet, et il n'y a pas de serveur à qui envoyer quoi que ce soit.</p>
+
+  <h2>Qui est responsable de vos renseignements</h2>
+  <div class="contact">
+    <p><strong>Responsable de la protection des renseignements personnels</strong></p>
+    <p>Archipel AI Ventures — Lévis (Québec)</p>
+    <p class="courriel"><!--email_off--><a href="mailto:archipel.clients@outlook.com">archipel.clients@outlook.com</a><!--/email_off--></p>
+  </div>
+
+  <h2>Ce que nous ne recueillons pas</h2>
+  <p>Pas de compte. Pas de courriel. Pas de mot de passe. Pas de paiement. Pas de formulaire. Pas de
+    statistiques de fréquentation, pas de mouchard, pas de témoin publicitaire. Nous n'avons aucune
+    base de données vous concernant.</p>
+  <p><strong>Votre code n'est ni téléversé, ni copié, ni lu par nous.</strong> Quand vous ouvrez un
+    dossier, le navigateur donne à la page l'accès aux fichiers choisis, et vous seul décidez
+    lesquels. L'analyse, les règles, la détection de failles et la traduction des messages se font
+    entièrement dans l'onglet.</p>
+
+  <h2>Ce qui reste sur votre appareil</h2>
+  <ul>
+    <li><strong>Vos préférences</strong> (langue de l'interface, niveau de sévérité, taille du modèle)
+      dans le stockage local du navigateur.</li>
+    <li><strong>Le dossier analysé en dernier</strong>, pour vous le reproposer à la prochaine visite.
+      C'est une permission que le navigateur retient, pas une copie de vos fichiers.</li>
+    <li><strong>Les explications déjà traduites</strong>, gardées pour ne pas les recalculer. Elles
+      sont rangées sous une empreinte du code, jamais sous le code lui-même.</li>
+    <li><strong>Les copies de sauvegarde</strong> faites avant d'appliquer une correction : elles sont
+      écrites dans votre propre dossier, dans <code>.decodemind-backup</code>.</li>
+    <li><strong>Les fichiers de l'application</strong>, pour qu'elle fonctionne hors ligne.</li>
+  </ul>
+  <p>Tout cela vit sur votre appareil. Vous l'effacez en vidant les données du site dans votre
+    navigateur, et en supprimant le dossier de sauvegarde.</p>
+
+  <h2>Les seules choses que votre navigateur va chercher ailleurs</h2>
+  <p><strong>Le bandeau d'annonces</strong>, en haut de la page, est chargé depuis GitHub Pages
+    (GitHub, États-Unis) à chaque visite. GitHub voit donc votre adresse IP, comme pour n'importe
+    quelle image hébergée ailleurs.</p>
+  <p><strong>Le modèle d'intelligence artificielle</strong>, si vous demandez à l'outil de traduire
+    les résultats en langage clair. Le modèle est alors téléchargé depuis Hugging Face (États-Unis) —
+    plusieurs centaines de mégaoctets — puis gardé en cache par votre navigateur. <strong>Ce
+    téléchargement ne se déclenche que si vous cliquez.</strong> Hugging Face voit votre adresse IP au
+    moment du téléchargement. Ensuite, le modèle tourne sur votre machine : vos questions et votre
+    code ne sortent pas.</p>
+  <p><strong>Notre hébergeur, Cloudflare</strong> (États-Unis), sert les pages et voit votre adresse
+    IP, comme tout hébergeur.</p>
+  <p>La base de vulnérabilités utilisée pour vérifier vos dépendances est <strong>incluse dans
+    l'application</strong> : la consulter ne contacte personne.</p>
+
+  <h2>Vos droits</h2>
+  <p>Vous pouvez écrire à
+    <!--email_off--><a href="mailto:archipel.clients@outlook.com">archipel.clients@outlook.com</a><!--/email_off--> pour toute
+    question, pour demander l'accès, la correction ou la suppression de renseignements vous
+    concernant, et pour porter plainte auprès de la Commission d'accès à l'information du Québec.</p>
+  <p>Comme nous ne détenons aucune base de données d'utilisateurs, la réponse à une demande d'accès
+    sera : nous n'avons rien à votre sujet. Ce que l'outil garde est sur votre appareil, et vous en
+    disposez sans passer par nous.</p>
+
+  <h2>Modifications</h2>
+  <p>Si nous changeons cette politique, la date en tête de page change.</p>
+</main>
+<footer>
+  © 2026 DecodeMind · Archipel AI Ventures · Lévis (Québec) · <a href="/privacy.html">English version</a>
+</footer>
+</body>
+</html>

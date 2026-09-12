@@ -1,0 +1,56 @@
+%% DecodeMind — graphe du parcours d'une analyse
+%% Genere le 2026-09-11. Sources : src/App.tsx, src/spike/SpikePage.tsx,
+%% src/spike/folderScan.ts, src/workers/*, src/lib/llm/*, src/lib/fixes/*
+%% Rendu : https://mermaid.live ou n'importe quel afficheur Mermaid.
+%%
+%% Ce qui compte sur ce graphe : AUCUNE fleche ne sort du navigateur vers un
+%% serveur d'analyse. Les deux seules sorties reseau sont le bandeau
+%% d'annonces et, sur clic, le telechargement du modele.
+graph TD
+    ouvre([ouverture de decodemind.dev]) --> app[App.tsx]
+    app --> pub[bandeau d'annonces<br/>AdCarousel]
+    app --> page[SpikePage]
+    app --> pied[pied de page<br/>lien vers la politique]
+
+    pub -. "seule requete au chargement" .-> github[(GitHub Pages<br/>flux RSS + images)]
+
+    page --> choix{comment l'utilisateur<br/>donne son code ?}
+    choix -- "dossier (File System Access)" --> dossier[showDirectoryPicker<br/>permission gardee en IndexedDB]
+    choix -- "champ fichier (Firefox, Safari)" --> fichiers[filesFromInput]
+
+    dossier --> collecte[collectFiles<br/>lecture dans l'onglet]
+    fichiers --> collecte
+    collecte --> scan[scanAllFiles]
+
+    scan --> ruff[[worker Ruff WASM<br/>Python]]
+    scan --> eslint[[worker ESLint<br/>JS / TS]]
+    scan --> astgrep[[worker ast-grep WASM<br/>regles maison]]
+    scan --> osv[[worker OSV<br/>base CVE INCLUSE dans l'app]]
+    scan --> prettier[[worker Prettier<br/>mise en forme]]
+
+    ruff --> rapport[toReport + categorize]
+    eslint --> rapport
+    astgrep --> rapport
+    osv --> rapport
+    prettier --> rapport
+
+    rapport --> affiche[SectionedReport<br/>FindingCard]
+    affiche --> traduire{traduire en<br/>langage clair ?}
+    traduire -- non --> fin([rapport a l'ecran])
+    traduire -- "oui, sur clic" --> modele[loadModel<br/>WebLLM]
+    modele -. "telechargement, une seule fois" .-> hf[(Hugging Face<br/>poids du modele)]
+    modele --> local[[generation DANS le navigateur<br/>le code ne sort pas]]
+    local --> cache[(cache des traductions<br/>IndexedDB, cle = empreinte)]
+    cache --> affiche
+
+    affiche --> corriger{appliquer une correction ?}
+    corriger -- non --> fin
+    corriger -- oui --> sauvegarde[backupFile<br/>copie dans .decodemind-backup]
+    sauvegarde --> journal[(recordBackup<br/>IndexedDB)]
+    sauvegarde --> ecrit[applyEdits + writeFile<br/>dans VOTRE dossier]
+    ecrit --> fin
+
+    classDef sortie fill:#fde8e6,stroke:#94382c,color:#5c221b;
+    classDef navigateur fill:#e3efea,stroke:#2c6650,color:#1b3d30;
+    class github,hf sortie;
+    class local,ruff,eslint,astgrep,osv,prettier navigateur;
