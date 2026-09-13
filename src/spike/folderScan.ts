@@ -402,6 +402,14 @@ async function runPool<TReq, TRes>(
  * Run all files through the appropriate workers.
  * Uses a pool of POOL_SIZE workers per scanner kind for parallel processing.
  * onProgress fires after each file completes.
+ *
+ * `preWarmedAstGrepWorker` — optional ast-grep worker that's already received
+ * a `warmup` message from the caller (typically SpikePage's mount-time
+ * useEffect). When provided, scanAllFiles uses it instead of spinning up a
+ * fresh worker (which would re-pay the ~30-60s cold-load every scan) and
+ * does NOT terminate it — the caller owns the worker's lifecycle. When
+ * absent, behavior is unchanged: a one-shot worker is created and
+ * terminated at the end of the ast-grep section.
  */
 export async function scanAllFiles(
   files: ScanFile[],
@@ -409,6 +417,7 @@ export async function scanAllFiles(
     done: Record<ScannerKind, number>,
     total: Record<ScannerKind, number>,
   ) => void,
+  preWarmedAstGrepWorker?: Worker,
 ): Promise<FolderScanReport> {
   const start = performance.now();
   const findings: AggregatedFinding[] = [];
@@ -673,14 +682,16 @@ export async function scanAllFiles(
       let errCount = 0;
       let jobsDone = 0;
 
-      // Single-worker dispatch — no warmup. Empirically the warmup never
-      // returns in under 5 minutes (web-tree-sitter ESM transform on Vite +
-      // grammar fetch + WASM compile) — same time cost gets paid whether
-      // attributed to a separate warmup call or to the first rule scan. We
-      // pay it on the first rule with a generous timeout, then every
-      // subsequent rule lands in <100ms because the worker caches the
-      // registered language in module state.
-      const worker = makeAstGrepWorker();
+      // Single-worker dispatch. Prefer the caller's pre-warmed worker (whose
+      // tree-sitter init + grammar registration is already done) so the
+      // first rule lands in <100ms instead of paying the ~30-60s cold-load.
+      // Fall back to a fresh one-shot worker when the caller didn't supply
+      // one — same first-rule penalty as before, but the safety net is
+      // preserved. `ownWorker` tracks whether we constructed it, so we only
+      // terminate workers WE created (the warmup worker lives across scans
+      // and is owned by SpikePage).
+      const worker = preWarmedAstGrepWorker ?? makeAstGrepWorker();
+      const ownWorker = !preWarmedAstGrepWorker;
 
       // Run every rule against the same long-lived worker. First rule pays
       // the cold-load cost (web-tree-sitter compile + grammar fetch), each
@@ -696,12 +707,12 @@ export async function scanAllFiles(
           })),
           ruleYaml: job.ruleYaml,
         };
-        // First 3 jobs get a 90s timeout each (covers cold-load distributed
-        // across the warmup phase); subsequent jobs land in <100ms once the
-        // tree-sitter grammar is cached in the worker. A 90s wall is enough
-        // for a sane cold-load, but stops a single pathological rule from
-        // burning the whole 5-minute scan budget.
-        const timeoutMs = i < 3 ? 90_000 : 60_000;
+        // With a pre-warmed worker, the grammars are already compiled — any
+        // single rule should land in well under a second; 30s is a generous
+        // safety net for pathological patterns. Without warmup, we keep the
+        // legacy schedule: 90s for the first 3 jobs (covers the cold-load
+        // distributed across them), 60s for the rest.
+        const timeoutMs = preWarmedAstGrepWorker ? 30_000 : (i < 3 ? 90_000 : 60_000);
         let res: AstGrepResponse;
         try {
           res = await ask<AstGrepRequest, AstGrepResponse>(worker, req, timeoutMs);
@@ -742,7 +753,10 @@ export async function scanAllFiles(
         onProgress({ ...done }, { ...total });
       }
 
-      worker.terminate();
+      // Only tear down the worker if we created it. The caller-provided
+      // warmup worker outlives this scan so the next scan also skips the
+      // cold-load.
+      if (ownWorker) worker.terminate();
 
       if (errCount > 5) {
         warnings.push(`ast-grep: ${errCount - 5} additional rule errors suppressed (see browser console).`);

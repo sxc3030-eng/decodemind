@@ -2,8 +2,31 @@ id: bug-dict-get-no-default
 language: Python
 category: bug
 severity: info
-message: dict.get() without default returns None — caller may not handle it (V3 backlog — hangs WASM)
+message: dict.get() without a default returns None — caller may not handle the None case; pass an explicit default
 rule:
-  pattern: __decodemind_v3_backlog_noop__
-# Valid Python identifier (no special chars) that won't appear in real code.
-# ast-grep parses it as a name expression — no AST ambiguity, no WASM hang.
+  any:
+    - pattern: d.get($KEY)
+    - pattern: dct.get($KEY)
+    - pattern: dict.get($KEY)
+    - pattern: dictionary.get($KEY)
+    - pattern: data.get($KEY)
+    - pattern: params.get($KEY)
+    - pattern: kwargs.get($KEY)
+    - pattern: cfg.get($KEY)
+    - pattern: config.get($KEY)
+    - pattern: opts.get($KEY)
+    - pattern: options.get($KEY)
+    - pattern: env.get($KEY)
+    - pattern: headers.get($KEY)
+    - pattern: payload.get($KEY)
+    - pattern: metadata.get($KEY)
+    - pattern: meta.get($KEY)
+    - pattern: attrs.get($KEY)
+    - pattern: attributes.get($KEY)
+    - pattern: settings.get($KEY)
+    - pattern: ctx.get($KEY)
+# Enumerated common dict-variable names to dodge the meta-var-receiver
+# ambiguity bug in @ast-grep/wasm 0.42 ($DICT.get($K) → "Multiple AST nodes
+# are detected"). This will miss user-named dicts (e.g. `user_prefs.get(k)`)
+# but covers the most common idioms. Each pattern is fully concrete so the
+# WASM can compile it without ambiguity.

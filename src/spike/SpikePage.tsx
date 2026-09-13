@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 async function sha256(text: string): Promise<string> {
   const buf = new TextEncoder().encode(text);
@@ -42,6 +42,83 @@ export function SpikePage() {
   const [rootHandle, setRootHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const { lastHandle, saveHandle, verifyPermission } = usePersistentDirectoryHandle();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Eager ast-grep warmup ──────────────────────────────────────────────────
+  // Spin up the ast-grep worker the moment the page mounts and ship a
+  // `warmup` message so tree-sitter + the most common grammars are compiled
+  // long before the user clicks "Pick a folder". Without this, the first
+  // rule of the first scan eats a ~30-60s cold-load and trips the worker
+  // timeout. The worker is kept alive across multiple scans (each scan
+  // gets it via the optional `preWarmedAstGrepWorker` arg to scanAllFiles)
+  // and only torn down on unmount.
+  const warmupWorkerRef = useRef<Worker | null>(null);
+  const [warmupState, setWarmupState] = useState<'idle' | 'warming' | 'warmed' | 'failed'>('idle');
+  const [warmupElapsedMs, setWarmupElapsedMs] = useState<number | null>(null);
+  const [warmupTickMs, setWarmupTickMs] = useState<number>(0);
+
+  useEffect(() => {
+    const warmStart = performance.now();
+    let cancelled = false;
+    let tickTimer: ReturnType<typeof setInterval> | null = null;
+    let w: Worker;
+    try {
+      w = new Worker(new URL('../workers/ast-grep.worker.ts', import.meta.url), {
+        type: 'module',
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[DecodeMind/warmup] worker construction failed', err);
+      setWarmupState('failed');
+      return;
+    }
+    warmupWorkerRef.current = w;
+    setWarmupState('warming');
+    setWarmupTickMs(0);
+    tickTimer = setInterval(() => {
+      if (!cancelled) setWarmupTickMs(performance.now() - warmStart);
+    }, 200);
+
+    w.onmessage = (e: MessageEvent<{ type: string; elapsedMs?: number; message?: string }>) => {
+      if (cancelled) return;
+      const data = e.data;
+      if (data.type === 'warmed') {
+        if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+        const elapsed = data.elapsedMs ?? Math.round(performance.now() - warmStart);
+        setWarmupElapsedMs(elapsed);
+        setWarmupState('warmed');
+        // eslint-disable-next-line no-console
+        console.info(`[DecodeMind/warmup] grammars ready in ${elapsed}ms`);
+      } else if (data.type === 'error') {
+        if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+        // eslint-disable-next-line no-console
+        console.error(`[DecodeMind/warmup] worker reported error: ${data.message}`);
+        setWarmupState('failed');
+      }
+    };
+    w.onerror = (e) => {
+      if (cancelled) return;
+      if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+      // eslint-disable-next-line no-console
+      console.error('[DecodeMind/warmup] worker onerror', e.message);
+      setWarmupState('failed');
+    };
+
+    w.postMessage({
+      type: 'warmup',
+      languages: ['python', 'javascript', 'typescript'],
+    });
+
+    return () => {
+      cancelled = true;
+      if (tickTimer) clearInterval(tickTimer);
+      // Tear down the warmup worker on unmount. In React 18 strict mode
+      // dev-double-mount, the first instance gets terminated immediately
+      // and the second mount creates a fresh worker — the warmup cost is
+      // paid twice in dev but production runs once.
+      try { w.terminate(); } catch { /* ignore */ }
+      if (warmupWorkerRef.current === w) warmupWorkerRef.current = null;
+    };
+  }, []);
 
   const push = (m: Measurement) => setMeasurements((prev) => [...prev, m]);
 
@@ -340,6 +417,7 @@ export function SpikePage() {
         (done: Record<ScannerKind, number>, total: Record<ScannerKind, number>) => {
           setScanProgress(formatProgress(done, total, _scanStart));
         },
+        warmupWorkerRef.current ?? undefined,
       );
 
       // Merge collectFiles warnings with scan warnings
@@ -386,6 +464,7 @@ export function SpikePage() {
         (done: Record<ScannerKind, number>, total: Record<ScannerKind, number>) => {
           setScanProgress(formatProgress(done, total, _scanStartB));
         },
+        warmupWorkerRef.current ?? undefined,
       );
       setFolderReport({ ...report, warnings: [...warnings, ...report.warnings] });
       setScanProgress('');
@@ -417,6 +496,7 @@ export function SpikePage() {
         (done: Record<ScannerKind, number>, total: Record<ScannerKind, number>) => {
           setScanProgress(formatProgress(done, total, _scanStartC));
         },
+        warmupWorkerRef.current ?? undefined,
       );
       setFolderReport({ ...report, warnings: [...warnings, ...report.warnings] });
       setScanProgress('');
@@ -455,6 +535,19 @@ export function SpikePage() {
           {' · '}
           <span title="build time (UTC)">{import.meta.env.VITE_APP_BUILT ?? 'live'}</span>
           {import.meta.env.DEV ? ' · dev' : ' · prod'}
+          {warmupState === 'warming' && (
+            <span className="text-brand-accent">
+              {' · '}warming grammars… ({(warmupTickMs / 1000).toFixed(1)}s elapsed)
+            </span>
+          )}
+          {warmupState === 'warmed' && warmupElapsedMs !== null && (
+            <span className="text-brand-accent">
+              {' · '}grammar ready ({(warmupElapsedMs / 1000).toFixed(1)}s)
+            </span>
+          )}
+          {warmupState === 'failed' && (
+            <span className="text-brand-warn">{' · '}grammar warmup failed (will retry on first scan)</span>
+          )}
         </p>
       </header>
 
