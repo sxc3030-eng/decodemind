@@ -21,9 +21,8 @@ curl -s https://decodemind.dev/assets/index-*.js      # origines du paquet
 #   navigate /confidentialite → la politique, service worker actif
 ```
 
-**État au 2026-09-13** : **6 invariants verts, 2 rouges**. Les deux rouges sont
-connus, mesurés, et volontairement non réparés — ils relèvent du produit, pas
-de la sûreté.
+**État au 2026-09-13, fin de journée** : **9 invariants, tous verts.** Les deux
+rouges du matin sont réparés et prouvés sur le site en ligne.
 
 ---
 
@@ -126,22 +125,27 @@ travailler en mémoire partagée.
 
 ---
 
-## I-7 — Les moteurs d'analyse se chargent · **ROUGE**, non réparé volontairement
+## I-7 — Les moteurs d'analyse se chargent · **VERT** (réparé le 2026-09-13)
 
 - **Mesuré le 2026-09-13** : le paquet servi (`index-Cpqgq4ZS.js`, 6,8 Mo)
   contient encore `.worker-DZte3Qq9.ts` et deux `data:video/mp2t`. Les moteurs
   sont chargés depuis du **TypeScript non compilé**, alors que les fichiers
   compilés existent sur le serveur. Les trois boutons d'analyse échouent.
-- **Non réparé sur décision** : le site sert volontairement le harnais, et
-  réparer les moteurs revient à livrer le produit — ce que personne n'a
-  demandé. Consigné ici pour que ce ne soit pas redécouvert une troisième fois.
-- **Recommandation quand Simon voudra y aller** : corriger la configuration de
-  construction pour que les travailleurs pointent vers les `.js` compilés. Les
-  fichiers sont déjà là ; c'est un problème de chemin, pas de code.
+- **La cause exacte** : trois appels passaient `new URL('…worker.ts',
+  import.meta.url)` **en paramètre** à une fonction. Vite ne réécrit cette
+  forme que lorsqu'elle est l'argument **direct** de `new Worker(...)`.
+  Détachée, elle partait comme ressource brute, servie en `video/mp2t` — le
+  type MIME des flux vidéo, que l'extension `.ts` déclenche.
+- **Corrigé** : la fonction reçoit une **fabrique**. Les fabriques existaient
+  déjà dans `folderScan.ts`, avec un commentaire qui mettait en garde contre
+  ce piège précis : l'indirection l'avait contourné.
+- **Prouvé en ligne le 2026-09-13**, version `dd431ec` : Ruff en **124 ms avec
+  2 constats**, ESLint en **37 ms avec 1 constat**, Prettier en **56 ms**.
+  Aucune erreur. Zéro `data:video/mp2t` dans le paquet, contre 2 avant.
 
 ---
 
-## I-8 — Un visiteur déjà venu n'est pas piégé sur une version morte · **ROUGE**
+## I-8 — Un visiteur déjà venu n'est pas piégé sur une version morte · **VERT** (réparé le 2026-09-13)
 
 - **Mesuré** : les paquets de l'ancienne version cités par la revue —
   `/assets/index-BEOgGYsV.js`, `/assets/index-xHyG8ULi.css` — répondent **200
@@ -150,11 +154,18 @@ travailler en mémoire partagée.
 - **Ce que ça veut dire** : un navigateur qui a gardé l'ancien service worker
   demande un fichier JavaScript, reçoit du HTML, et se retrouve devant une page
   blanche — sans message, sans moyen de comprendre.
-- **Un 200 ne prouve donc rien sur ce site.** Pour vérifier qu'une version est
-  bien déployée, comparer l'empreinte du paquet `/assets/index-*.js`, jamais le
-  code de réponse.
-- **Non réparé** : la correction est un mécanisme de mise à jour du service
-  worker, qui touche au comportement du produit. À faire avec le reste.
+- **Corrigé en deux endroits.** Côté navigateur : `registerType: 'autoUpdate'`,
+  `cleanupOutdatedCaches`, `clientsClaim`, `skipWaiting`, et une liste
+  d'exclusion pour que `/assets/` ne soit jamais servi par la coquille.
+  **Vérifié en ligne** : plus aucun service worker en attente, la mise à jour
+  prend la main seule.
+- **Et côté serveur, ce que je croyais impossible.** J'avais écrit que le repli
+  de Cloudflare Pages ne se corrigeait pas depuis le dépôt : **c'était faux**.
+  Pages sert une vraie 404 dès qu'il trouve un `404.html` à la racine de la
+  sortie. Ajouté, déployé, mesuré.
+- **Jamais de rechargement pendant une analyse** : `src/lib/pwa/miseAJour.ts`.
+  Un scanner qui efface son propre résultat au moment où il aboutit serait pire
+  que le défaut réparé. Dix assertions.
 
 ---
 
@@ -168,5 +179,22 @@ travailler en mémoire partagée.
   « Apply fix » et de ses copies de sauvegarde reste non vérifié.
 - **Deux pièges d'infrastructure à ne pas oublier** : la branche de production
   du projet Cloudflare Pages a déjà été `v1` plutôt que `master`, et le projet
-  s'est déjà déconnecté de GitHub sans erreur visible. Un déploiement qui
-  « ne prend pas » se vérifie par l'empreinte du paquet, pas par un 200.
+  s'est déjà déconnecté de GitHub sans erreur visible.
+
+---
+
+## I-9 — Une adresse inconnue répond 404 · **VERT** (réparé le 2026-09-13)
+
+- **Mesuré après correction** : `/nexistepas`, `/nexistepas.js`,
+  `/assets/nexistepas`, `/img/nexistepas.png`, `/sous/dossier/inconnu` — tous
+  **404**. Les pages réelles, `/`, `/confidentialite`, `/privacy`, répondent
+  toujours 200, avec ou sans extension.
+- **La règle « un 200 ne prouve rien sur ce site » est levée.**
+- **Mais un piège de mesure la remplace, et il m'a eu.** `_headers` marque
+  `/assets/*` comme `immutable, max-age=31536000`. Une sonde lancée **avant**
+  la correction voit sa réponse — la coquille HTML en 200 — mise en cache au
+  bord **pour un an**. Après correction, ce chemin précis répondait encore 200
+  alors que tout le reste répondait 404. J'ai cru à une correction incomplète.
+  **Un chemin jamais demandé, ou la même adresse avec un paramètre quelconque,
+  répond bien 404.** Sonder un site sous cache immuable empoisonne sa propre
+  mesure : toujours ajouter un paramètre unique.
