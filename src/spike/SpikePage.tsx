@@ -10,28 +10,43 @@ async function sha256(text: string): Promise<string> {
 import { MODELS, type Tier } from '@/lib/llm/models';
 import { detectAdapter, loadModel } from '@/lib/llm/loader';
 import { translateFinding } from '@/lib/llm/translator';
-import { startTimer } from '@/lib/measurement/instrument';
+import { startTimer, formatBytes } from '@/lib/measurement/instrument';
 import type { RuffResponse } from '@/workers/ruff.worker';
 import type { EslintResponse } from '@/workers/eslint.worker';
 import type { PrettierResponse } from '@/workers/prettier.worker';
 import { ResultsTable, type Measurement } from './ResultsTable';
 import { PYTHON_SAMPLE, TYPESCRIPT_SAMPLE, HTML_SAMPLE, SAMPLE_FINDING } from './fixtures';
-import { collectFiles, scanAllFiles, type ScannerKind, type FolderScanReport } from './folderScan';
+import {
+  collectFiles,
+  scanAllFiles,
+  makeRuffWorker,
+  makeEslintWorker,
+  makePrettierWorker,
+  type ScannerKind,
+  type FolderScanReport,
+} from './folderScan';
 import { FolderScanResults } from './FolderScanResults';
 import { usePersistentDirectoryHandle } from '@/lib/hooks/usePersistentDirectoryHandle';
 import { filesFromInput } from './fileInputFallback';
 import { RootHandleProvider } from './RootHandleContext';
 import { toReport } from './toReport';
 import { SectionedReport } from '@/components/report/SectionedReport';
+import { TierSelectionModal } from '@/components/TierSelectionModal';
 import type { ReportFinding } from '@/lib/report/types';
 import { backupFile, writeFile } from '@/lib/fixes/backup';
 import { recordBackup } from '@/lib/fixes/backupHistory';
 import { applyEdits } from '@/lib/fixes/applyEdit';
+import { marquerAnalyse } from '@/lib/pwa/miseAJour';
 
 type WorkerResponse = RuffResponse | EslintResponse | PrettierResponse;
 
 export function SpikePage() {
   const [tier, setTier] = useState<Tier>('quick');
+  // La fenetre de confirmation etait ecrite et testee depuis le debut, mais
+  // jamais montee : elle disparaissait meme du paquet livre, eliminee comme
+  // code mort. Resultat, un clic sur « Load model » lancait 840 Mo a 4,1 Go
+  // sans que personne n'ait jamais vu un chiffre.
+  const [confirmationOuverte, setConfirmationOuverte] = useState(false);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>('');
@@ -120,6 +135,11 @@ export function SpikePage() {
     };
   }, []);
 
+  // Tant qu'une analyse tourne, aucune mise a jour ne recharge la page.
+  useEffect(() => {
+    marquerAnalyse(!!busy);
+  }, [busy]);
+
   const push = (m: Measurement) => setMeasurements((prev) => [...prev, m]);
 
   async function handleApply(finding: ReportFinding): Promise<void> {
@@ -197,18 +217,31 @@ export function SpikePage() {
     setBusy(null);
   }
 
-  async function runLoadModel() {
+  // Le bouton n'engage plus rien : il demande. Le telechargement ne part
+  // qu'apres un choix explicite dans la fenetre, ou celui-ci est chiffre.
+  function demanderLeModele() {
+    setConfirmationOuverte(true);
+  }
+
+  function choixDeModele(choix: Tier | 'skip') {
+    setConfirmationOuverte(false);
+    if (choix === 'skip') return;
+    setTier(choix);
+    void runLoadModel(choix);
+  }
+
+  async function runLoadModel(choisi: Tier = tier) {
     setBusy('load-model');
     setProgress('starting download…');
     try {
-      const result = await loadModel(tier, (p) =>
+      const result = await loadModel(choisi, (p) =>
         setProgress(`${Math.round(p.progress * 100)}% — ${p.text}`),
       );
       setEngine(result.engine);
       push({
-        label: `Load ${MODELS[tier].label}`,
+        label: `Load ${MODELS[choisi].label}`,
         durationMs: result.loadTimer.elapsedMs(),
-        bytes: MODELS[tier].approxDiskBytes,
+        bytes: MODELS[choisi].approxDiskBytes,
         note: 'cold load (first time, then cached)',
       });
       setProgress('loaded');
@@ -267,17 +300,22 @@ export function SpikePage() {
     setBusy(null);
   }
 
-  // Worker URLs MUST be relative literals (not `@/...` alias) for Vite's static
-  // analyzer to bundle them as separate worker chunks. Using the alias produces
-  // a broken inline data: URL in production build.
+  // On reçoit une FABRIQUE, jamais une adresse. Vite ne réécrit
+  // `new URL('…worker.ts', import.meta.url)` que lorsqu'il est l'argument
+  // direct de `new Worker(...)`. Passée en paramètre, l'adresse lui échappe :
+  // le fichier .ts part alors comme ressource brute, servie en `video/mp2t`
+  // — le type MIME des flux vidéo, que l'extension .ts déclenche — et le
+  // travailleur ne démarre jamais. C'est ce qui cassait les trois boutons
+  // d'analyse jusqu'au 2026-09-13, sans le moindre message.
+  // Les fabriques vivent dans folderScan.ts, où le patron était déjà correct.
   async function runWorker<TReq, TRes extends WorkerResponse>(
-    workerUrl: URL,
+    creerWorker: () => Worker,
     request: TReq,
     label: string,
     extractMetrics: (res: Extract<TRes, { type: 'result' }>) => Omit<Measurement, 'label'>,
     timeoutMs = 120_000,
   ) {
-    const worker = new Worker(workerUrl, { type: 'module' });
+    const worker = creerWorker();
     const t = startTimer();
     try {
       worker.postMessage(request);
@@ -319,7 +357,7 @@ export function SpikePage() {
     setBusy('ruff');
     try {
       await runWorker<{ type: 'scan'; source: string }, RuffResponse>(
-        new URL('../workers/ruff.worker.ts', import.meta.url),
+        makeRuffWorker,
         { type: 'scan', source: PYTHON_SAMPLE },
         'Ruff scan (sample.py)',
         (res) => ({ count: res.diagnostics.length, note: `worker reported ${res.elapsedMs} ms internally` }),
@@ -333,7 +371,7 @@ export function SpikePage() {
     setBusy('eslint');
     try {
       await runWorker<{ type: 'lint'; source: string; filename: string }, EslintResponse>(
-        new URL('../workers/eslint.worker.ts', import.meta.url),
+        makeEslintWorker,
         { type: 'lint', source: TYPESCRIPT_SAMPLE, filename: 'sample.ts' },
         'ESLint scan (sample.ts)',
         (res) => ({ count: res.messages.length, note: `worker reported ${res.elapsedMs} ms internally` }),
@@ -347,7 +385,7 @@ export function SpikePage() {
     setBusy('prettier');
     try {
       await runWorker<{ type: 'format'; source: string; parser: 'html' }, PrettierResponse>(
-        new URL('../workers/prettier.worker.ts', import.meta.url),
+        makePrettierWorker,
         { type: 'format', source: HTML_SAMPLE, parser: 'html' },
         'Prettier format (sample.html)',
         (res) => ({ bytes: res.formatted.length, note: `worker reported ${res.elapsedMs} ms internally` }),
@@ -522,6 +560,14 @@ export function SpikePage() {
 
   return (
     <RootHandleProvider value={rootHandle}>
+    {/* Fenêtre de confirmation du modèle. Elle annonce le poids réel du
+        téléchargement — 840 Mo, 1,9 Go ou 4,1 Go — avant qu'il parte. */}
+    <TierSelectionModal
+      open={confirmationOuverte}
+      recommendedTier={tier}
+      onSelect={choixDeModele}
+      onClose={() => setConfirmationOuverte(false)}
+    />
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <header>
         <h1 className="text-3xl font-bold">DecodeMind — Phase 0 Spike</h1>
@@ -559,18 +605,32 @@ export function SpikePage() {
             onChange={(e) => setTier(e.target.value as Tier)}
             className="bg-brand-surface border border-brand-muted rounded px-2 py-1"
           >
+            {/* La taille du telechargement s'affiche ici, en clair, AVANT
+                tout clic. « Quick (1.5B) » parle de milliards de parametres,
+                pas d'octets : personne hors du metier ne peut deviner que ce
+                bouton engage 840 Mo, ni 4,1 Go pour « Best ». Sur un forfait
+                mobile, ca se compte en argent. La donnee existait depuis le
+                debut dans MODELS[t].approxDiskBytes ; elle ne sortait nulle
+                part. */}
             {(['quick', 'better', 'best'] as Tier[]).map((t) => (
               <option key={t} value={t}>
-                {MODELS[t].label}
+                {MODELS[t].label} — {formatBytes(MODELS[t].approxDiskBytes)} à télécharger
               </option>
             ))}
           </select>
           <span className="text-sm text-brand-muted">{MODELS[tier].recommendation}</span>
         </div>
+        <p className="text-sm text-brand-muted">
+          Le modèle choisi représente{' '}
+          <strong>{formatBytes(MODELS[tier].approxDiskBytes)} à télécharger</strong>{' '}
+          et environ {formatBytes(MODELS[tier].approxVramBytes)} de mémoire vidéo.
+          Le téléchargement ne part qu'à votre demande, et reste ensuite sur
+          votre appareil.
+        </p>
 
         <div className="flex gap-2 flex-wrap">
           <Button onClick={runDetectAdapter} disabled={!!busy}>Detect WebGPU adapter</Button>
-          <Button onClick={runLoadModel} disabled={!!busy}>Load model</Button>
+          <Button onClick={demanderLeModele} disabled={!!busy}>Load model</Button>
           <Button onClick={runTranslate} disabled={!!busy || !engine}>Translate 1 finding</Button>
           <Button onClick={runTranslateBatch} disabled={!!busy || !engine}>Translate batch of 8</Button>
           <Button onClick={runRuff} disabled={!!busy}>Scan Python with Ruff</Button>

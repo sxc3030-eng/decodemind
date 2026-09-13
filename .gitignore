@@ -71,3 +71,6 @@ scripts/audit-output*.txt
 scripts/run-baseline.txt
 scripts/run-results.json
 scripts/run-stderr.log
+
+# Copies de travail le temps de separer deux commits (2026-09-13)
+.mien-temporaire/

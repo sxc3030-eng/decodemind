@@ -44,11 +44,26 @@ export default defineConfig({
     react(),
     copyGrammarsPlugin(),
     VitePWA({
-      registerType: 'prompt',
+      // 'prompt' sans interface pour poser la question laissait le nouveau
+      // service worker « en attente » pour toujours. Un visiteur deja venu
+      // reclamait alors d'anciens fichiers ; Cloudflare Pages repond la
+      // coquille de l'application, du HTML en 200, pour toute adresse
+      // inconnue. Le navigateur recevait du HTML la ou il attendait du
+      // JavaScript : page blanche, sans message et sans recours.
+      registerType: 'autoUpdate',
       devOptions: { enabled: false },
       workbox: {
         globPatterns: ['**/*.{js,css,html,wasm,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024, // 12 MB — accommodates ruff WASM blob (~10.6 MB)
+        // Sans ca, les anciens paquets restent en cache et continuent d'etre
+        // servis apres une mise a jour.
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        // Une requete vers /assets/ attend un fichier, jamais une page. Si le
+        // fichier n'existe plus, il vaut mieux un 404 franc que la coquille
+        // HTML servie en silence : c'est elle qui produit la page blanche.
+        navigateFallbackDenylist: [/^\/assets\//, /^\/img\//, /\.[a-z0-9]+$/i],
         runtimeCaching: [
           {
             // Hugging Face model weights

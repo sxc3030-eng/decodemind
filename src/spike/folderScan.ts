@@ -244,16 +244,16 @@ export async function collectFiles(
 
 // Worker URLs must be relative literals — NOT `@/` aliases — for Vite's static
 // analyzer to bundle them as separate worker chunks.
-function makeRuffWorker() {
+export function makeRuffWorker() {
   return new Worker(new URL('../workers/ruff.worker.ts', import.meta.url), { type: 'module' });
 }
-function makeEslintWorker() {
+export function makeEslintWorker() {
   return new Worker(new URL('../workers/eslint.worker.ts', import.meta.url), { type: 'module' });
 }
-function makePrettierWorker() {
+export function makePrettierWorker() {
   return new Worker(new URL('../workers/prettier.worker.ts', import.meta.url), { type: 'module' });
 }
-function makeAstGrepWorker() {
+export function makeAstGrepWorker() {
   return new Worker(new URL('../workers/ast-grep.worker.ts', import.meta.url), { type: 'module' });
 }
 
