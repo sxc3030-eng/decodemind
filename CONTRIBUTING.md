@@ -2,6 +2,13 @@
 
 Thank you for considering a contribution! DecodeMind is built by an independent author with [Claude](https://claude.ai) as a partner — clear, focused contributions are very welcome.
 
+## Working files stay out of `C:`
+
+House rule (2026-09-12): **never delete, move, or tidy anything on the `C:`
+drive** — not even our own scratch files. Temporary working copies belong
+inside the repository and must clean up after themselves, including on error.
+Do not write them to the Windows temp directory.
+
 ## Setup
 
 ```sh
