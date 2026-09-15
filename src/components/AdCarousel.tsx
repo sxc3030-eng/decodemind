@@ -80,12 +80,17 @@ export function AdCarousel() {
             tabIndex={index === active ? 0 : -1}
           >
             <span className="ad-frame">
-              {/* crossOrigin requis : le site tourne avec COEP require-corp (isolation
-                  necessaire aux workers WASM Ruff/tree-sitter) -- une image cross-origin
-                  sans mode CORS explicite est bloquee (ERR_BLOCKED_BY_RESPONSE...Coep),
-                  meme si l'hote (GitHub Pages) autorise deja Access-Control-Allow-Origin:*. */}
-              <img className="ad-bg" src={item.image} alt="" aria-hidden loading="lazy" crossOrigin="anonymous" />
-              <img className="ad-fg" src={item.image} alt={item.title} loading="lazy" crossOrigin="anonymous" />
+              {/* crossOrigin="anonymous" : bonne pratique sous COEP require-corp (isolation
+                  necessaire aux workers WASM Ruff/tree-sitter), meme si GitHub Pages sert deja
+                  Access-Control-Allow-Origin:* par defaut.
+                  JAMAIS loading="lazy" ici : mesure en production le 2026-09-14, 50 images
+                  empilees a la meme position (position:absolute, une seule a opacity:1)
+                  restaient TOUTES a naturalWidth 0 -- le navigateur ne les demande jamais dans
+                  cette mise en page, meme celle censee etre visible. Bascule immediate et
+                  confirmee en production en passant loading a "eager" sur un <img> deja en
+                  place. Meme regle que sur souveraincode.ca et archipelonline.com ce soir. */}
+              <img className="ad-bg" src={item.image} alt="" aria-hidden crossOrigin="anonymous" />
+              <img className="ad-fg" src={item.image} alt={item.title} crossOrigin="anonymous" />
             </span>
             <span className="ad-label">Ad</span>
           </a>
