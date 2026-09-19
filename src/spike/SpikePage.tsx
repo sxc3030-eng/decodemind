@@ -570,9 +570,14 @@ export function SpikePage() {
     />
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <header>
-        <h1 className="text-3xl font-bold">DecodeMind — Phase 0 Spike</h1>
-        <p className="text-brand-muted">
-          Click each button in order. Then export JSON and paste into the findings doc.
+        <h1 className="text-3xl font-bold">DecodeMind</h1>
+        <p className="text-lg text-brand-muted">
+          Analyse votre code et trouve les problèmes <strong>sans jamais l&apos;envoyer nulle part</strong>.
+          Tout tourne dans votre navigateur.
+        </p>
+        <p className="text-sm text-brand-muted mt-2">
+          Python, TypeScript et HTML. Choisissez un dossier : rien ne part sur un serveur,
+          ni chez nous, ni ailleurs.
         </p>
         <p className="text-xs text-brand-muted/70 mt-1 font-mono">
           v{import.meta.env.VITE_APP_VERSION ?? 'dev'}
@@ -598,8 +603,66 @@ export function SpikePage() {
       </header>
 
       <section className="bg-brand-card rounded-lg p-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold">Analysez un dossier</h2>
+          {'showDirectoryPicker' in window
+            ? <Button onClick={pickAndScan} disabled={!!busy}>Choisir un dossier…</Button>
+            : null}
+        </div>
+        <p className="text-sm text-brand-muted">
+          Le dossier est lu sur votre appareil. Aucun fichier n&apos;est téléversé, aucune
+          copie n&apos;est gardée.
+        </p>
+        {lastHandle && (
+          <div>
+            <Button onClick={rescanLastHandle} disabled={!!busy}>
+              Reprendre le dernier dossier
+            </Button>
+          </div>
+        )}
+        {'showDirectoryPicker' in window ? null : (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button onClick={() => fileInputRef.current?.click()} disabled={!!busy}>
+              Choisir un dossier (lecture seule)
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              // @ts-expect-error — webkitdirectory is not in React's HTMLInputElement types
+              webkitdirectory=""
+              multiple
+              style={{ display: 'none' }}
+              onChange={handleFileInput}
+            />
+            <p className="text-sm text-brand-warn">
+              Votre navigateur ne sait pas ouvrir un dossier entier : on passe en lecture seule.
+            </p>
+          </div>
+        )}
+        {scanProgress && (
+          scanProgress.startsWith('Error:') ? (
+            <div className="bg-brand-danger/20 border border-brand-danger rounded p-3 text-sm">
+              <strong className="text-brand-danger">L&apos;analyse a échoué.</strong> {scanProgress.slice(6).trim()}
+              <div className="text-xs text-brand-muted mt-1">La console du navigateur garde le détail.</div>
+            </div>
+          ) : (
+            <p className="text-sm text-brand-accent">⏳ {scanProgress}</p>
+          )
+        )}
+        {folderReport && <FolderScanResults report={folderReport} />}
+      </section>
+
+      <details className="bg-brand-card rounded-lg p-4">
+        <summary className="text-xl font-semibold cursor-pointer">
+          Explications en français, et essais sur un exemple
+        </summary>
+        <p className="text-sm text-brand-muted mt-2">
+          Facultatif. Un modèle téléchargé une seule fois peut reformuler chaque
+          problème trouvé en français clair. Il reste ensuite sur votre appareil.
+        </p>
+        <div className="space-y-3 mt-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <label className="text-sm">Model tier:</label>
+          <label className="text-sm">Taille du modèle :</label>
           <select
             value={tier}
             onChange={(e) => setTier(e.target.value as Tier)}
@@ -629,63 +692,18 @@ export function SpikePage() {
         </p>
 
         <div className="flex gap-2 flex-wrap">
-          <Button onClick={runDetectAdapter} disabled={!!busy}>Detect WebGPU adapter</Button>
-          <Button onClick={demanderLeModele} disabled={!!busy}>Load model</Button>
-          <Button onClick={runTranslate} disabled={!!busy || !engine}>Translate 1 finding</Button>
-          <Button onClick={runTranslateBatch} disabled={!!busy || !engine}>Translate batch of 8</Button>
-          <Button onClick={runRuff} disabled={!!busy}>Scan Python with Ruff</Button>
-          <Button onClick={runEslint} disabled={!!busy}>Lint TS with ESLint</Button>
-          <Button onClick={runPrettier} disabled={!!busy}>Format HTML with Prettier</Button>
+          <Button onClick={runDetectAdapter} disabled={!!busy}>Vérifier la carte graphique</Button>
+          <Button onClick={demanderLeModele} disabled={!!busy}>Télécharger le modèle</Button>
+          <Button onClick={runTranslate} disabled={!!busy || !engine}>Expliquer un problème</Button>
+          <Button onClick={runTranslateBatch} disabled={!!busy || !engine}>En expliquer huit</Button>
+          <Button onClick={runRuff} disabled={!!busy}>Essai Python (Ruff)</Button>
+          <Button onClick={runEslint} disabled={!!busy}>Essai TypeScript (ESLint)</Button>
+          <Button onClick={runPrettier} disabled={!!busy}>Essai HTML (Prettier)</Button>
         </div>
 
         {busy && <p className="text-sm text-brand-accent">⏳ {busy} — {progress}</p>}
-      </section>
-
-      <section className="bg-brand-card rounded-lg p-4 space-y-3">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Scan a real folder</h2>
-          {'showDirectoryPicker' in window
-            ? <Button onClick={pickAndScan} disabled={!!busy}>Pick a folder…</Button>
-            : null}
         </div>
-        {lastHandle && (
-          <div>
-            <Button onClick={rescanLastHandle} disabled={!!busy}>
-              Pick last folder again
-            </Button>
-          </div>
-        )}
-        {'showDirectoryPicker' in window ? null : (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button onClick={() => fileInputRef.current?.click()} disabled={!!busy}>
-              Choose folder (read-only)
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              // @ts-expect-error — webkitdirectory is not in React's HTMLInputElement types
-              webkitdirectory=""
-              multiple
-              style={{ display: 'none' }}
-              onChange={handleFileInput}
-            />
-            <p className="text-sm text-brand-warn">
-              Your browser doesn&apos;t support folder picking — using read-only fallback.
-            </p>
-          </div>
-        )}
-        {scanProgress && (
-          scanProgress.startsWith('Error:') ? (
-            <div className="bg-brand-danger/20 border border-brand-danger rounded p-3 text-sm">
-              <strong className="text-brand-danger">Scan failed.</strong> {scanProgress.slice(6).trim()}
-              <div className="text-xs text-brand-muted mt-1">Check DevTools Console for the full stack.</div>
-            </div>
-          ) : (
-            <p className="text-sm text-brand-accent">⏳ {scanProgress}</p>
-          )
-        )}
-        {folderReport && <FolderScanResults report={folderReport} />}
-      </section>
+      </details>
 
       {report && (
         <section className="bg-brand-card rounded-lg p-4 space-y-3">
@@ -697,24 +715,28 @@ export function SpikePage() {
         </section>
       )}
 
-      <section className="bg-brand-card rounded-lg p-4 space-y-3">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Measurements</h2>
+      <details className="bg-brand-card rounded-lg p-4">
+        <summary className="text-xl font-semibold cursor-pointer">Détails techniques</summary>
+
+        <div className="flex justify-between items-center mt-3">
+          <h3 className="text-lg font-semibold">Mesures</h3>
           <Button onClick={exportJson} disabled={measurements.length === 0}>
-            Export JSON
+            Exporter en JSON
           </Button>
         </div>
         <ResultsTable measurements={measurements} />
-      </section>
 
-      <section className="bg-brand-card rounded-lg p-4 text-sm text-brand-muted">
-        <p className="font-semibold mb-1">Note: ast-grep button is omitted from this spike.</p>
-        <p>
-          The ast-grep worker requires tree-sitter grammar .wasm files served from <code>/tree-sitter-&lt;lang&gt;.wasm</code>.
-          Setting this up is a separate task; the worker compiles and the message contract is verified by typecheck,
-          but a live scan needs the grammar copied to <code>public/</code>.
-        </p>
-      </section>
+        <div className="text-sm text-brand-muted mt-4">
+          <p className="font-semibold mb-1">Ce qui n&apos;est pas encore en place</p>
+          <p>
+            L&apos;analyse sémantique (ast-grep) attend ses grammaires tree-sitter, servies
+            depuis <code>/tree-sitter-&lt;lang&gt;.wasm</code>. Le worker compile et son
+            contrat de messages est vérifié, mais aucune analyse sémantique ne tourne
+            tant que les grammaires ne sont pas dans <code>public/</code>. Les analyses
+            Python, TypeScript et HTML, elles, fonctionnent.
+          </p>
+        </div>
+      </details>
     </div>
     </RootHandleProvider>
   );
