@@ -586,19 +586,6 @@ export function SpikePage() {
           {' · '}
           <span title="build time (UTC)">{import.meta.env.VITE_APP_BUILT ?? 'live'}</span>
           {import.meta.env.DEV ? ' · dev' : ' · prod'}
-          {warmupState === 'warming' && (
-            <span className="text-brand-accent">
-              {' · '}warming grammars… ({(warmupTickMs / 1000).toFixed(1)}s elapsed)
-            </span>
-          )}
-          {warmupState === 'warmed' && warmupElapsedMs !== null && (
-            <span className="text-brand-accent">
-              {' · '}grammar ready ({(warmupElapsedMs / 1000).toFixed(1)}s)
-            </span>
-          )}
-          {warmupState === 'failed' && (
-            <span className="text-brand-warn">{' · '}grammar warmup failed (will retry on first scan)</span>
-          )}
         </p>
       </header>
 
@@ -725,6 +712,15 @@ export function SpikePage() {
           </Button>
         </div>
         <ResultsTable measurements={measurements} />
+
+        <p className="text-xs text-brand-muted font-mono mt-3">
+          Grammaires :{' '}
+          {warmupState === 'warming' && `chauffe en cours (${(warmupTickMs / 1000).toFixed(1)} s)`}
+          {warmupState === 'warmed' && warmupElapsedMs !== null
+            && `pretes (${(warmupElapsedMs / 1000).toFixed(1)} s)`}
+          {warmupState === 'failed' && 'chauffe echouee, nouvel essai a la premiere analyse'}
+          {warmupState !== 'warming' && warmupState !== 'warmed' && warmupState !== 'failed' && 'au repos'}
+        </p>
 
         <div className="text-sm text-brand-muted mt-4">
           <p className="font-semibold mb-1">Ce qui n&apos;est pas encore en place</p>
